@@ -1,4 +1,4 @@
-# Octpex
+﻿# Octpex
 
 <p align="center">
   <strong>仿生分布式认知拓扑与自我进化的端云协同智能体底座</strong><br>
@@ -25,7 +25,7 @@
 5. [三道门禁客观升级漏斗（零信任小模型自评）](#三道门禁客观升级漏斗零信任小模型自评)
 6. [跨层自进化：“大脑教腕足”与 Dynamic MCP](#跨层自进化大脑教腕足与-dynamic-mcp)
 7. [多智能体协作范式与多框架生态](#多智能体协作范式与多框架生态)
-8. [核心 SPI 契约与项目结构](#核心-spi-契约与项目结构)
+8. [核心 SPI 契约规范](#核心-spi-契约规范)
 9. [安全治理与离线韧性](#安全治理与离线韧性)
 10. [双模部署支持与核心特性架构](#双模部署支持与核心特性架构)
 11. [文档索引](#文档索引)
@@ -68,7 +68,7 @@ Octpex 严格仿生这一自然进化奇迹：
 ## 系统整体拓扑架构
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
 
@@ -149,7 +149,7 @@ flowchart TD
 > **工程原则：** 永远不要相信本地小模型（0.5B–3B）对自己输出置信度的主观打分。所有升级决策由宿主运行时代码通过确定性客观硬门禁强制裁决。
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
     START["子任务到达 Octo-Arm 腕足"] --> G1{"Gate 1: 前置策略与语义距离硬门禁"}
@@ -169,7 +169,7 @@ flowchart TD
 ## 跨层自进化：“大脑教腕足”与 Dynamic MCP
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
     ARM_GAP["边缘腕足触发能力缺失或校验耗尽升级"]
@@ -214,7 +214,7 @@ flowchart TD
 
 ---
 
-## 核心 SPI 契约与项目结构
+## 核心 SPI 契约规范
 
 ### 五大核心服务提供者接口 (SPI)
 * **`GlobalOrchestratorSPI`**：全局规划、协调器扇出与 HITL 挂起。
@@ -222,55 +222,6 @@ flowchart TD
 * **`SLMInferenceSPI`**：统一本地推理后端（Ollama / llama.cpp / vLLM）并提供关键字段 Logprob 提取。
 * **`DataSubstrateSPI`**：支持 CAS 乐观锁版本控制与分布式租约的引用传递共享数据基质。
 * **`ToolInvocationSPI`**：统一静态与动态 MCP 工具调用及安全沙盒隔离接口。
-
-### 推荐仓库目录树
-```text
-octpex/
-├── README.md                        # 项目总览与快速上手（英文缺省）
-├── README_CN.md                     # 项目总览与快速上手（中文版）
-├── LICENSE                          # Apache License 2.0
-├── docs/                            # 顶层架构设计、产品 PRD 与核心集成指南
-│   ├── ARCHITECTURE.md              # 系统架构规范 (English)
-│   ├── ARCHITECTURE_CN.md           # 系统架构规范 (Chinese)
-│   ├── PRD.md                       # 产品需求文档 (English)
-│   ├── PRD_CN.md                    # 产品需求文档 (Chinese)
-│   ├── developer_guide.md           # 开发者与生态集成综合指南 (English)
-│   ├── developer_guide_cn.md        # 开发者与生态集成综合指南 (Chinese)
-│   ├── deployment_guide.md          # 部署运维与业务实战指南 (English)
-│   └── deployment_guide_cn.md       # 部署运维与业务实战指南 (Chinese)
-├── bridge/
-│   └── python/                      # 异构 Agent 框架 Python SDK (octpex-sdk)
-├── cmd/
-│   └── octpex/                      # CLI 编译入口 (main.go)
-├── configs/                         # 双模运行配置文件 (local.yaml / cluster.yaml)
-├── deploy/                          # 云原生生产部署与编排清单
-│   ├── docker/                      # 生产级多阶段精简 Dockerfile
-│   ├── docker-compose.yaml          # 单机集群中间件组合 (Kernel, NATS, Redis, etcd, Ollama)
-│   ├── helm/octpex/                 # 企业级 Helm v3 Chart 生产包 (HPA, Deployment, ConfigMap)
-│   └── k8s/                         # Kubernetes 生产部署清单 (Deployment, Service, ConfigMap)
-├── pkg/
-│   ├── adapter/                     # 腕足运行时适配器 (Native FSM L0, Edge SLM L1, Ollama)
-│   ├── brain/                       # 中心大脑 (Octo-Brain, Frontier LLM Client, DAG 调度器)
-│   ├── bus/                         # 纵向与横向双平面神经总线 (LocalNervousBus, NATS)
-│   ├── config/                      # 动态配置解析与双模加载器 (local / cluster)
-│   ├── driver/                      # 物理网络驱动连接工厂 (Redis, NATS, etcd)
-│   ├── gates/                       # 三道客观升级漏斗门禁 (Gate 1, Gate 2, Gate 3)
-│   ├── mcp/                         # 标准 MCP 客户端 (JSON-RPC 2.0, Stdio, Streaming)
-│   ├── protocol/                    # 仿生神经信封 (NervousEnvelope, sub://, Token 衰减)
-│   ├── ring/                        # 神经环基底注册中心 (CapabilityRegistry, etcd)
-│   ├── sandbox/                     # AbloEx 安全沙盒 (Wiper 查杀, AST 扫描, 资源配额)
-│   ├── server/                      # HTTP REST API 服务与 Web 实时动态可视化看板
-│   ├── storage/                     # 腕足私有存储区 (Ganglion KV & 向量索引) 与离线韧性 WAL
-│   ├── substrate/                   # 共享数据基质 (InMemorySubstrate, Redis CAS)
-│   ├── telemetry/                   # FinOps 财务遥测与 Token 节约率审计计算引擎
-│   └── tool/                        # 神经环动态工具箱 (DynamicMCPBox, MCP 桥接器)
-├── test/                            # 端到端单机流式与自愈蒸馏循环自动化测试
-└── examples/
-    ├── local_quickstart/            # 单机零外部依赖运行示例
-    ├── aiops_triage_mesh/           # 多腕足 AIOps 日志排障流水线
-    ├── self_evolving_parser/        # “大脑教腕足”动态工具蒸馏示例
-    └── python_heterogeneous_mesh/   # Python ADK + AutoGen + LangGraph 多智能体网格协同示例
-```
 
 ---
 

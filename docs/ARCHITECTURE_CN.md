@@ -1,4 +1,4 @@
-# 系统架构与工程实现规范：Octpex
+﻿# 系统架构与工程实现规范：Octpex
 
 **文档版本：** 1.1.0  
 **适用范围：** 仿生分布式拓扑、多框架生态集成、客观升级漏斗、标准数据契约、SPI 接口定义及分阶段实施路径  
@@ -10,7 +10,7 @@
 Octpex 借鉴头足类动物（章鱼）的分布式神经生物学结构，将智能体算力与状态组织为三个核心层级：**Octo-Brain（中枢大脑皮层）**、**Basal Nerve Ring（腕足根部神经环 / 共享协调底座）** 以及 **Octo-Arms（边缘神经节腕足）**。
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
 
@@ -91,7 +91,7 @@ flowchart TD
 Octpex 的核心设计理念是成为一套**非侵入式的分布式智能体认知底座（Distributed Cognitive Fabric）**，而非封闭的单进程 SDK。通过三层标准化适配器接口，业界主流框架无需重写业务逻辑即可无缝嵌入 Octpex 协同网络：
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
     subgraph LAYER4["第四层：宏观全局编排层 (GlobalOrchestratorSPI)"]
@@ -174,7 +174,7 @@ Octpex 采用“**局部私有存储 + 根部共享基质**”的两级数据存
 > **核心工程原则：** *永远不要相信本地小模型（0.5B–3B）对自己输出置信度的主观打分。所有升级（Escalation）边界必须由宿主运行时代码通过前置策略与语义距离门禁、外部确定性验证器、数学对数概率以及行为死循环检测器强制执行。*
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
     START["子任务到达 Octo-Arm 腕足"] --> G1{"Gate 1: 前置策略与语义距离硬门禁"}
@@ -208,7 +208,7 @@ flowchart TD
 Octpex 构建了一个闭环进化飞轮，将中枢前沿大模型的一次性高昂推理，逐步沉淀为边缘端可无限次免费复用的确定性工具：
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
     ARM_GAP["边缘腕足触发能力缺失或校验耗尽升级"]

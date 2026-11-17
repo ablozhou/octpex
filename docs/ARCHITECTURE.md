@@ -1,4 +1,4 @@
-# System Architecture & Engineering Specification: Octpex
+﻿# System Architecture & Engineering Specification: Octpex
 
 **Document Version:** 1.1.0  
 **Scope:** Biomimetic Topology, Multi-Framework Ecosystem Integration, Objective Escalation Funnel, Data Contracts, SPI Specifications, and Implementation Phases  
@@ -10,7 +10,7 @@
 Octpex organizes distributed intelligence into three structural tiers modeled after cephalopod neurobiology: **Octo-Brain (Central Cortex)**, **Basal Nerve Ring (Shared Coordination Substrate)**, and **Octo-Arms (Edge Ganglia)**.
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
 
@@ -91,7 +91,7 @@ flowchart TD
 Octpex is designed as an **unopinionated distributed agent fabric** rather than a monolithic single-process SDK. Through three standardized extension layers, existing agent frameworks embed cleanly into Octpex without rewriting domain logic:
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
     subgraph LAYER4["Macro Orchestration Layer (GlobalOrchestratorSPI)"]
@@ -174,7 +174,7 @@ In the `cluster` profile, accepted tasks must use durable delivery. A worker ack
 > **Core Design Principle:** *Never trust an SLM to self-report its own confidence. Escalation boundaries must be deterministically enforced by the host runtime using pre-flight policy/distance checks, external verifiers, mathematical token logprobs, and behavioral loop detectors.*
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
     START["Sub-Task Arrives at Octo-Arm"] --> G1{"Gate 1: Pre-Flight Policy & Distance Check"}
@@ -196,7 +196,7 @@ flowchart TD
 Octpex implements a closed-loop evolutionary cycle where central frontier reasoning is progressively crystallized into deterministic edge capabilities:
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
     ARM_GAP["Octo-Arm Escalates Capability Gap or Validation Failure"]

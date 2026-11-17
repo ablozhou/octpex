@@ -1,4 +1,4 @@
-# Octpex 开发者与生态集成综合指南
+﻿# Octpex 开发者与生态集成综合指南
 
 本文档为二次开发者、社区贡献者与框架集成商提供在 Octpex 仿生智能体分布式基质上构建、封装与扩展 Agent 的全景指导。
 
@@ -12,36 +12,30 @@
 - **Level 2（包装单兵 Agent）**：通过 Python SDK 包装 Google ADK 或 LangGraph 智能体。
 - **Level 3（封装多 Agent 团队）**：将 AutoGen 辩论组或 CrewAI 团队封装为单一高内聚专家节点。
 
-```
-+-----------------------------------------------------------------------------------+
-|                            OCTPEX NERVOUS BUS                                     |
-|                 (Vertical Dispatch / Lateral Handoff Envelope)                    |
-+-----------------------------------------------------------------------------------+
-                                          |
-                                          v
-+-----------------------------------------------------------------------------------+
-|                        OCTO-ARM WORKER POD                                        |
-|                                                                                   |
-|   +---------------------------------------------------------------------------+   |
-|   |         Local Biomimetic Reflex Loop (Act -> Inspect -> Retry)            |   |
-|   |                                                                           |   |
-|   |    [Envelope In]                                                          |   |
-|   |          |                                                                |   |
-|   |          v                                                                |   |
-|   |        Act() <------------+                                               |   |
-|   |          |                | (Retry with Critique)                         |   |
-|   |          v                |                                               |   |
-|   |     Gate 2 Verifier       |                                               |   |
-|   |       /         \         |                                               |   |
-|   |    (Pass)      (Fail) ----+                                               |   |
-|   |      |           (retries > 3)                                            |   |
-|   |      v                 \                                                  |   |
-|   |   SUCCESS              ESCALATED (升级至中枢大脑)                         |   |
-|   +---------------------------------------------------------------------------+   |
-|                                        |                                          |
-|                                        v                                          |
-|                          Shared Data Substrate (sub://)                           |
-+-----------------------------------------------------------------------------------+
+```mermaid
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+flowchart TD
+    classDef default fill:none;
+    
+    BUS["OCTPEX 神经总线<br/>(纵向派发 / 横向接力信封)"]
+    
+    subgraph POD["OCTO-ARM 腕足工作节点 (Worker Pod)"]
+        direction TB
+        subgraph LOOP["本地仿生反射弧 (Act -> Inspect -> Retry)"]
+            direction TB
+            ENV_IN["[信封进入]"] --> ACT["Act: 动作执行"]
+            ACT --> G2{"Gate 2 客观验证器"}
+            G2 -->|"通过"| SUCC["SUCCESS: 执行成功"]
+            G2 -->|"未通过 (重试 <= 3)"| RETRY["携带报错原因局部反思"]
+            RETRY --> ACT
+            G2 -->|"未通过 (重试超限)"| ESC["ESCALATED<br/>(强制上送中枢大脑)"]
+        end
+    end
+
+    SUB["共享数据基质 (sub://)"]
+
+    BUS --> POD
+    SUCC --> SUB
 ```
 
 ---
@@ -126,37 +120,30 @@ result = adapter.execute_envelope(incoming_envelope)
 
 #### 3.4.1 架构职责与工作流程
 
-```
-+-----------------------------------------------------------------------------------+
-|                        OCTPEX 神经总线 (NATS / 本地高速总线)                      |
-+-----------------------------------------------------------------------------------+
-                                          |
-                              神经信封传递 (基于 sub:// 引用)
-                                          v
-+-----------------------------------------------------------------------------------+
-|               Google ADK Octo-Arm 腕足容器 (Level 2 封装运行时)                   |
-|                                                                                   |
-|   +---------------------------------------------------------------------------+   |
-|   |   Octpex 本地仿生反射弧 (GoogleADKArmAdapter)                             |   |
-|   |                                                                           |   |
-|   |        [信封进入]                                                         |   |
-|   |             |                                                             |   |
-|   |             v                                                             |   |
-|   |       ADK Agent Run() <-------------------+                               |   |
-|   |             |                             | (携带批评意见局部重试)        |   |
-|   |             v                             |                               |   |
-|   |      Gate 2 客观验证器 (Schema/AST/ExitCode)                              |   |
-|   |         /         \                       |                               |   |
-|   |      (通过)      (失败) ------------------+ (重试次数 <= 3)               |   |
-|   |        |            \                                                     |   |
-|   |        v          (重试次数超限)                                          |   |
-|   |     SUCCESS           \                                                   |   |
-|   |   (侧向同级移交)    ESCALATED (纵向上送中心大脑)                          |   |
-|   +---------------------------------------------------------------------------+   |
-|                                         |                                         |
-|                                         v                                         |
-|                       共享数据基质 (sub:// 零拷贝读写)                            |
-+-----------------------------------------------------------------------------------+
+```mermaid
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+flowchart TD
+    classDef default fill:none;
+
+    BUS["OCTPEX 神经总线 (NATS / 本地总线)"]
+    
+    subgraph POD["Google ADK Octo-Arm 腕足 (Level 2 适配容器)"]
+        direction TB
+        subgraph LOOP["Octpex 本地仿生反射弧 (GoogleADKArmAdapter)"]
+            direction TB
+            ENV_IN["[信封进入]"] --> RUN["ADK Agent Run()"]
+            RUN --> G2{"Gate 2 客观验证器<br/>(Schema / AST / ExitCode)"}
+            G2 -->|"通过"| SUCC["SUCCESS<br/>(横向同级接力)"]
+            G2 -->|"未通过 (重试 <= 3)"| RETRY["携带批评意见局部重试"]
+            RETRY --> RUN
+            G2 -->|"未通过 (重试超限)"| ESC["ESCALATED<br/>(纵向升级至中枢大脑)"]
+        end
+    end
+
+    SUB["共享数据基质 (sub://)"]
+
+    BUS -->|"NervousEnvelope (sub:// 引用)"| POD
+    SUCC --> SUB
 ```
 
 1. **上下文映射与解耦**：将传入的 `NervousEnvelope.parameters` 与 `session_id` 自动映射为 ADK 的上下文输入字典。大体积数据通过 `sub://` 引用指针解析，避免长上下文污染与 Token 浪费。

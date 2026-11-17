@@ -161,7 +161,7 @@ func (s *HTTPServer) handleTopology(w http.ResponseWriter, r *http.Request) {
 
 	resp := map[string]any{
 		"system":      "Octpex Biomimetic Nervous System",
-		"version":     "0.1.0-alpha",
+		"version":     "0.5.0",
 		"active_arms": arms,
 		"arm_count":   len(arms),
 		"timestamp":   time.Now().Unix(),

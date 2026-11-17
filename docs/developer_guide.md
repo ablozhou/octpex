@@ -1,4 +1,4 @@
-# Octpex Comprehensive Developer & Integration Guide
+﻿# Octpex Comprehensive Developer & Integration Guide
 
 This guide provides developers, contributors, and integrators with everything needed to build, wrap, and extend agents on the Octpex Biomimetic Nervous System.
 
@@ -12,36 +12,30 @@ In Octpex, an **Octo-Arm (Ganglion)** is a standardized distributed execution wo
 - **Level 2 (Single-Agent Wrapper)**: Python agents using Google ADK or LangGraph.
 - **Level 3 (Multi-Agent Crew)**: Encapsulated debate teams or crews (AutoGen, CrewAI) acting as single high-cohesion nodes.
 
-```
-+-----------------------------------------------------------------------------------+
-|                            OCTPEX NERVOUS BUS                                     |
-|                 (Vertical Dispatch / Lateral Handoff Envelope)                    |
-+-----------------------------------------------------------------------------------+
-                                          |
-                                          v
-+-----------------------------------------------------------------------------------+
-|                        OCTO-ARM WORKER POD                                        |
-|                                                                                   |
-|   +---------------------------------------------------------------------------+   |
-|   |         Local Biomimetic Reflex Loop (Act -> Inspect -> Retry)            |   |
-|   |                                                                           |   |
-|   |    [Envelope In]                                                          |   |
-|   |          |                                                                |   |
-|   |          v                                                                |   |
-|   |        Act() <------------+                                               |   |
-|   |          |                | (Retry with Critique)                         |   |
-|   |          v                |                                               |   |
-|   |     Gate 2 Verifier       |                                               |   |
-|   |       /         \         |                                               |   |
-|   |    (Pass)      (Fail) ----+                                               |   |
-|   |      |           (retries > 3)                                            |   |
-|   |      v                 \                                                  |   |
-|   |   SUCCESS              ESCALATED (To Central Brain)                       |   |
-|   +---------------------------------------------------------------------------+   |
-|                                        |                                          |
-|                                        v                                          |
-|                          Shared Data Substrate (sub://)                           |
-+-----------------------------------------------------------------------------------+
+```mermaid
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+flowchart TD
+    classDef default fill:none;
+    
+    BUS["OCTPEX NERVOUS BUS<br/>(Vertical Dispatch / Lateral Handoff Envelope)"]
+    
+    subgraph POD["OCTO-ARM WORKER POD"]
+        direction TB
+        subgraph LOOP["Local Biomimetic Reflex Loop (Act -> Inspect -> Retry)"]
+            direction TB
+            ENV_IN["[Envelope In]"] --> ACT["Act()"]
+            ACT --> G2{"Gate 2 Verifier"}
+            G2 -->|"Pass"| SUCC["SUCCESS"]
+            G2 -->|"Fail (retries <= 3)"| RETRY["Retry with Critique"]
+            RETRY --> ACT
+            G2 -->|"Fail (retries > 3)"| ESC["ESCALATED<br/>(To Central Brain)"]
+        end
+    end
+
+    SUB["Shared Data Substrate (sub://)"]
+
+    BUS --> POD
+    SUCC --> SUB
 ```
 
 ---
@@ -125,37 +119,30 @@ In Octpex, Google Agent Development Kit (ADK) agents are encapsulated as **Level
 
 #### 3.4.1 Architectural Role & Workflow
 
-```
-+-----------------------------------------------------------------------------------+
-|                        OCTPEX NERVOUS BUS (NATS / Local)                          |
-+-----------------------------------------------------------------------------------+
-                                          |
-                              NervousEnvelope (sub:// refs)
-                                          v
-+-----------------------------------------------------------------------------------+
-|               Google ADK Octo-Arm Pod (Level 2 Wrapped Worker)                    |
-|                                                                                   |
-|   +---------------------------------------------------------------------------+   |
-|   |   Octpex Biomimetic Reflex Loop (GoogleADKArmAdapter)                     |   |
-|   |                                                                           |   |
-|   |        [Envelope In]                                                      |   |
-|   |              |                                                            |   |
-|   |              v                                                            |   |
-|   |        ADK Agent Run() <------------------+                               |   |
-|   |              |                            | (Retry with Critique)         |   |
-|   |              v                            |                               |   |
-|   |       Gate 2 Verifier (Schema/AST/ExitCode)                               |   |
-|   |          /         \                      |                               |   |
-|   |       (Pass)      (Fail) -----------------+ (Retries <= 3)                |   |
-|   |         |            \                                                    |   |
-|   |         v          (Retries Exhausted)                                    |   |
-|   |      SUCCESS          \                                                   |   |
-|   |    (Lateral Hop)    ESCALATED (Vertical to Central Brain)                 |   |
-|   +---------------------------------------------------------------------------+   |
-|                                         |                                         |
-|                                         v                                         |
-|                       Shared Data Substrate (sub://)                              |
-+-----------------------------------------------------------------------------------+
+```mermaid
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+flowchart TD
+    classDef default fill:none;
+
+    BUS["OCTPEX NERVOUS BUS (NATS / Local)"]
+    
+    subgraph POD["Google ADK Octo-Arm Pod (Level 2 Wrapped Worker)"]
+        direction TB
+        subgraph LOOP["Octpex Biomimetic Reflex Loop (GoogleADKArmAdapter)"]
+            direction TB
+            ENV_IN["[Envelope In]"] --> RUN["ADK Agent Run()"]
+            RUN --> G2{"Gate 2 Verifier<br/>(Schema / AST / ExitCode)"}
+            G2 -->|"Pass"| SUCC["SUCCESS<br/>(Lateral Hop)"]
+            G2 -->|"Fail (retries <= 3)"| RETRY["Retry with Critique"]
+            RETRY --> RUN
+            G2 -->|"Fail (retries > 3)"| ESC["ESCALATED<br/>(Vertical to Central Brain)"]
+        end
+    end
+
+    SUB["Shared Data Substrate (sub://)"]
+
+    BUS -->|"NervousEnvelope (sub:// refs)"| POD
+    SUCC --> SUB
 ```
 
 1. **Context Mapping**: The incoming `NervousEnvelope.parameters` and `session_id` are mapped into ADK's session context. Heavy payloads are resolved via `sub://` substrate pointers instead of being packed into the prompt.

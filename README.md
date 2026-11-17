@@ -1,4 +1,4 @@
-# Octpex
+﻿# Octpex
 
 <p align="center">
   <strong>Biomimetic Distributed Cognitive Topology & Self-Evolving Edge-Cloud Agent Fabric</strong>
@@ -24,7 +24,7 @@
 5. [Objective Escalation Funnel (Zero-Trust in SLM Self-Assessment)](#objective-escalation-funnel-zero-trust-in-slm-self-assessment)
 6. [Cross-Tier Self-Evolution: Brain-to-Arm & Dynamic MCP](#cross-tier-self-evolution-brain-to-arm--dynamic-mcp)
 7. [Collaboration Patterns & Ecosystem Interoperability](#collaboration-patterns--ecosystem-interoperability)
-8. [Core SPI Contracts & Repository Structure](#core-spi-contracts--repository-structure)
+8. [Core SPI Contracts](#core-spi-contracts)
 9. [Security Governance & Edge Resilience](#security-governance--edge-resilience)
 10. [Deployment Profiles & Core Feature Architecture](#deployment-profiles--core-feature-architecture)
 11. [Documentation Index](#documentation-index)
@@ -67,7 +67,7 @@ Octpex strictly mirrors this biomimetic principle:
 ## System Architecture & Topology
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
 
@@ -148,7 +148,7 @@ flowchart TD
 > **Engineering Principle:** Never trust an edge SLM (0.5B–3B) to evaluate its own certainty. All escalation boundaries are strictly enforced by host runtime code through objective gates.
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
     START["Sub-Task Arrives at Octo-Arm"] --> G1{"Gate 1: Pre-Flight Policy & Distance Check"}
@@ -168,7 +168,7 @@ flowchart TD
 ## Cross-Tier Self-Evolution: Brain-to-Arm & Dynamic MCP
 
 ```mermaid
-%%{init: {'themeVariables': { 'background': 'transparent', 'mainBkg': 'transparent', 'subGraphBkg': 'transparent', 'clusterBkg': 'transparent', 'edgeLabelBackground': 'transparent' }}}%%
+%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
 flowchart TD
     classDef default fill:none;
     ARM_GAP["Octo-Arm Escalates Capability Gap or Validation Failure"]
@@ -213,7 +213,7 @@ flowchart TD
 
 ---
 
-## Core SPI Contracts & Repository Structure
+## Core SPI Contracts
 
 ### Pluggable Core SPIs
 * **`GlobalOrchestratorSPI`**: Macro task decomposition, Coordinator fan-out, and HITL suspension.
@@ -221,55 +221,6 @@ flowchart TD
 * **`SLMInferenceSPI`**: Unified local SLM execution (Ollama, llama.cpp, vLLM) with critical token logprob extraction.
 * **`DataSubstrateSPI`**: CAS-versioned pass-by-reference working memory with distributed TTL leases.
 * **`ToolInvocationSPI`**: Standardized invocation layer for static/dynamic MCP tools and security sandboxes.
-
-### Recommended Repository Layout
-```text
-octpex/
-├── README.md                        # Project overview and quickstart (English default)
-├── README_CN.md                     # Project overview and quickstart (Chinese)
-├── LICENSE                          # Apache License 2.0
-├── docs/                            # Architecture specs, PRDs & comprehensive guides
-│   ├── ARCHITECTURE.md              # System Architecture Specification (English)
-│   ├── ARCHITECTURE_CN.md           # System Architecture Specification (Chinese)
-│   ├── PRD.md                       # Product Requirements Document (English)
-│   ├── PRD_CN.md                    # Product Requirements Document (Chinese)
-│   ├── developer_guide.md           # Comprehensive Developer & Integration Guide (English)
-│   ├── developer_guide_cn.md        # Comprehensive Developer & Integration Guide (Chinese)
-│   ├── deployment_guide.md          # Comprehensive Deployment & Operations Guide (English)
-│   └── deployment_guide_cn.md       # Comprehensive Deployment & Operations Guide (Chinese)
-├── bridge/
-│   └── python/                      # Python SDK for heterogeneous agent frameworks
-├── cmd/
-│   └── octpex/                      # CLI entrypoint (main.go)
-├── configs/                         # Dual-profile configurations (local.yaml / cluster.yaml)
-├── deploy/                          # Cloud-native cluster deployment manifests
-│   ├── docker/                      # Production multi-stage Dockerfile
-│   ├── docker-compose.yaml          # Full local cluster stack (Kernel, NATS, Redis, etcd, Ollama)
-│   ├── helm/octpex/                 # Enterprise Helm v3 chart (HPA, Deployment, ConfigMap)
-│   └── k8s/                         # Kubernetes Deployment, Service, and ConfigMap
-├── pkg/
-│   ├── adapter/                     # Arm runtime adapters (Native FSM L0, Edge SLM L1, Ollama)
-│   ├── brain/                       # Central Brain (Octo-Brain, Frontier LLM Client, DAG planner)
-│   ├── bus/                         # Vertical & lateral dual-plane bus (LocalNervousBus, NATS)
-│   ├── config/                      # Dynamic configuration loader & profile validator
-│   ├── driver/                      # Physical network driver connection factory (Redis, NATS, etcd)
-│   ├── gates/                       # Tri-Gate Objective Escalation Funnel (Gate 1, Gate 2, Gate 3)
-│   ├── mcp/                         # Standard MCP Client (JSON-RPC 2.0, Stdio, Streaming)
-│   ├── protocol/                    # Nervous envelope protocol (NervousEnvelope, sub://, Tokens)
-│   ├── ring/                        # Basal Nerve Ring registry (CapabilityRegistry, etcd)
-│   ├── sandbox/                     # AbloEx security sandbox (Wiper checks, AST scan, Quotas)
-│   ├── server/                      # HTTP REST API server & real-time web visual dashboard
-│   ├── storage/                     # Arm ganglion private store (KV & Vector index) & offline WAL
-│   ├── substrate/                   # Shared Data Substrate (InMemorySubstrate, Redis CAS)
-│   ├── telemetry/                   # FinOps cost savings & token reduction telemetry engine
-│   └── tool/                        # Basal Dynamic MCP Box (DynamicMCPBox, MCP server bridge)
-├── test/                            # E2E local pipeline & self-evolution loop automated tests
-└── examples/
-    ├── local_quickstart/            # Zero-dependency single-node demo
-    ├── aiops_triage_mesh/           # Multi-arm AIOps triage & lateral handoff demo
-    ├── self_evolving_parser/        # Brain-to-Arm dynamic tool synthesis demo
-    └── python_heterogeneous_mesh/   # Python ADK + AutoGen + LangGraph multi-agent mesh
-```
 
 ---
 

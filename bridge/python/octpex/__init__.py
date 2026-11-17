@@ -8,6 +8,8 @@ from .substrate import SubstrateClient, InMemorySubstrateClient
 from .arm import OctoArmWorker, ArmConfig
 from .worker import OctoArmDaemon
 
+__version__ = "0.5.0"
+
 __all__ = [
     "NervousEnvelope",
     "SubstrateRef",
