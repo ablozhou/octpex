@@ -1,0 +1,72 @@
+replicaCount: 3
+
+image:
+  repository: octpex/kernel
+  pullPolicy: IfNotPresent
+  tag: "0.1.0-alpha"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: octpex.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+config:
+  profile: cluster
+  brain:
+    maxParallelTasks: 16
+    escalationTimeoutMs: 30000
+    frontierProvider: "openai"
+    frontierBaseURL: "https://api.openai.com/v1"
+    frontierModel: "gpt-4o"
+    frontierTemperature: 0.1
+  ring:
+    registryType: "etcd"
+    endpoints:
+      - "octpex-etcd:2379"
+    leaseTTLSeconds: 5
+  substrate:
+    type: "redis"
+    endpoint: "octpex-redis:6379"
+    keyPrefix: "octpex:sub:"
+  bus:
+    type: "nats_jetstream"
+    bufferSize: 4096
+    url: "nats://octpex-nats:4222"
+    queueGroup: "octpex-arm-workers"
+  sandbox:
+    provider: "abloex"
+    memoryLimitMB: 512
+    timeoutSeconds: 10
+    networkIsolated: true

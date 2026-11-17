@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "octpex-sdk"
+version = "0.1.0"
+description = "Biomimetic Distributed Agent Nervous System Python Bridge"
+authors = [{ name = "Octpex Team" }]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.optional-dependencies]
+langgraph = ["langgraph>=0.0.1"]
+crewai = ["crewai>=0.1.0"]

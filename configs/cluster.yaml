@@ -1,0 +1,39 @@
+# Octpex Distributed Enterprise Cluster Profile
+profile: "cluster"
+
+brain:
+  orchestrator:
+    max_parallel_tasks: 32
+    escalation_timeout_ms: 30000
+  frontier:
+    provider: "gemini" # or "openai", "azure"
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+    api_key_env: "GEMINI_API_KEY"
+    model: "gemini-1.5-pro"
+    temperature: 0.2
+
+ring:
+  registry_type: "etcd"
+  endpoints:
+    - "http://etcd-cluster:2379"
+  lease_ttl_seconds: 5
+  sweep_interval_ms: 2000
+
+substrate:
+  type: "redis"
+  endpoint: "redis-cluster:6379"
+  key_prefix: "octpex:sub"
+  default_ttl_ms: 86400000
+
+bus:
+  type: "nats_jetstream"
+  url: "nats://nats-cluster:4222"
+  queue_group: "arm-workers"
+  vertical_subject: "octpex.vertical.dispatch"
+  lateral_subject: "octpex.lateral.handoff"
+
+sandbox:
+  provider: "abloex"
+  memory_limit_mb: 512
+  timeout_ms: 10000
+  network_isolated: true

@@ -1,0 +1,31 @@
+# Octpex Standalone Developer Profile (Zero External Cluster Dependencies)
+profile: "local"
+
+brain:
+  orchestrator:
+    max_parallel_tasks: 4
+    escalation_timeout_ms: 10000
+  frontier:
+    provider: "ollama" # or "openai", "gemini"
+    base_url: "http://localhost:11434"
+    model: "qwen2.5-coder:7b"
+    temperature: 0.1
+
+ring:
+  registry_type: "in_memory"
+  heartbeat_ttl_ms: 5000
+  sweep_interval_ms: 2000
+
+substrate:
+  type: "in_memory"
+  default_ttl_ms: 3600000
+
+bus:
+  type: "in_memory"
+  buffer_size: 512
+
+sandbox:
+  provider: "abloex"
+  memory_limit_mb: 256
+  timeout_ms: 5000
+  network_isolated: true

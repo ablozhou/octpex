@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # 1. Octpex Biomimetic Nervous System Daemon
+  octpex-kernel:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile
+    container_name: octpex-kernel
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    command: ["run", "-profile=cluster", "-config=/app/configs/cluster.yaml", "-port=8080"]
+    depends_on:
+      - nats
+      - redis
+      - etcd
+    environment:
+      - OCTPEX_PROFILE=cluster
+      - NATS_URL=nats://nats:4222
+      - REDIS_ENDPOINT=redis:6379
+      - ETCD_ENDPOINTS=etcd:2379
+
+  # 2. NATS JetStream Dual-Plane Bus
+  nats:
+    image: nats:2.10-alpine
+    container_name: octpex-nats
+    restart: unless-stopped
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+  # 3. Redis Shared Data Substrate (CAS + Leases)
+  redis:
+    image: redis:7.2-alpine
+    container_name: octpex-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  # 4. etcd Basal Nerve Ring Capability Registry
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.15
+    container_name: octpex-etcd
+    restart: unless-stopped
+    environment:
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ALLOW_NONE_AUTHENTICATION=yes
+    ports:
+      - "2379:2379"
+
+  # 5. Local SLM Inference Engine (Ollama)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: octpex-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+
+volumes:
+  ollama-models:

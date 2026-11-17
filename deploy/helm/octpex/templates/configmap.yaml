@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "octpex.fullname" . }}-config
+  labels:
+    {{- include "octpex.labels" . | nindent 4 }}
+data:
+  cluster.yaml: |
+    profile: {{ .Values.config.profile }}
+    brain:
+      max_parallel_tasks: {{ .Values.config.brain.maxParallelTasks }}
+      escalation_timeout_ms: {{ .Values.config.brain.escalationTimeoutMs }}
+      frontier_provider: "{{ .Values.config.brain.frontierProvider }}"
+      frontier_base_url: "{{ .Values.config.brain.frontierBaseURL }}"
+      frontier_model: "{{ .Values.config.brain.frontierModel }}"
+      frontier_temperature: {{ .Values.config.brain.frontierTemperature }}
+    ring:
+      registry_type: "{{ .Values.config.ring.registryType }}"
+      endpoints:
+        {{- range .Values.config.ring.endpoints }}
+        - "{{ . }}"
+        {{- end }}
+      lease_ttl_seconds: {{ .Values.config.ring.leaseTTLSeconds }}
+    substrate:
+      type: "{{ .Values.config.substrate.type }}"
+      endpoint: "{{ .Values.config.substrate.endpoint }}"
+      key_prefix: "{{ .Values.config.substrate.keyPrefix }}"
+    bus:
+      type: "{{ .Values.config.bus.type }}"
+      buffer_size: {{ .Values.config.bus.bufferSize }}
+      url: "{{ .Values.config.bus.url }}"
+      queue_group: "{{ .Values.config.bus.queueGroup }}"
+    sandbox:
+      provider: "{{ .Values.config.sandbox.provider }}"
+      memory_limit_mb: {{ .Values.config.sandbox.memoryLimitMB }}
+      network_isolated: {{ .Values.config.sandbox.networkIsolated }}

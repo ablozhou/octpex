@@ -1,0 +1,15 @@
+apiVersion: v2
+name: octpex
+description: A Helm chart for the Octpex Biomimetic Distributed Agent Nervous System
+type: application
+version: 0.1.0
+appVersion: "0.1.0-alpha"
+keywords:
+  - agent
+  - biomimetic
+  - distributed-systems
+  - llm
+  - edge-ai
+home: https://github.com/octpex/octpex
+maintainers:
+  - name: Octpex Core Team
