@@ -3,7 +3,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, Any, List, Optional, Tuple, Callable
 
-from .protocol import NervousEnvelope, StepResult, SubstrateRef
+from .protocol import (
+    NervousEnvelope,
+    StepResult,
+    SubstrateRef,
+    HARDWARE_TIER_0_CPU_EDGE,
+    DecisionEngineProfile,
+)
 from .substrate import SubstrateClient
 
 logger = logging.getLogger("octpex.arm")
@@ -15,6 +21,8 @@ class ArmConfig:
     capability: str
     max_reflex_retries: int = 3
     timeout_seconds: float = 30.0
+    hardware_tier: str = HARDWARE_TIER_0_CPU_EDGE
+    decision_profile: Optional[DecisionEngineProfile] = None
 
 
 class OctoArmWorker(ABC):

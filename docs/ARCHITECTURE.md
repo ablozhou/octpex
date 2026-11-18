@@ -1,16 +1,25 @@
-﻿# System Architecture & Engineering Specification: Octpex
+# System Architecture & Engineering Specification: Octpex
 
-**Document Version:** 1.1.0  
-**Scope:** Biomimetic Topology, Multi-Framework Ecosystem Integration, Objective Escalation Funnel, Data Contracts, SPI Specifications, and Implementation Phases  
+**Document Version:** 2.2.0  
+**Scope:** Biomimetic Topology, Multi-Framework Ecosystem Integration, Three-Tier Cognitive Escalation Ladder, Hardware-Aware System-1 Decision Engine, Data Contracts, SPI Specifications, and Security Governance  
 
 ---
 
 ## 1. Biomimetic System Topology
 
-Octpex organizes distributed intelligence into three structural tiers modeled after cephalopod neurobiology: **Octo-Brain (Central Cortex)**, **Basal Nerve Ring (Shared Coordination Substrate)**, and **Octo-Arms (Edge Ganglia)**.
+Octpex organizes distributed intelligence into three structural tiers modeled after cephalopod neurobiology: **Octo-Brain (Central Cortex)**, **Basal Nerve Ring (Shared Coordination Substrate)**, and **Octo-Arms (Edge Ganglia)**. Each Octo-Arm integrates a **System-1 Non-Autoregressive Decision Engine** (`Karpo-Decision` / `Laya`) alongside a **System-2 Generative SLM** (`Qwen3.5-4B` / `1.5B`).
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
 
@@ -36,28 +45,31 @@ flowchart TD
         %% Left Arm: Telemetry & Log Distiller
         subgraph ARM1["Octo-Arm 1: Telemetry Distiller"]
             direction TB
-            A1_CORE["Adapter & SLM 0.5B (Edge Log Reducer)"]
+            A1_SYS1["System-1 Synaptic Engine (Laya / Karpo-2B)"]
+            A1_CORE["System-2 Generative SLM (Qwen3.5-4B Reducer)"]
             A1_PRIV["Private Ganglion Store (Raw Logs & Vector Buffer)"]
             A1_TOOL["Sucker / Tool SPI (Prometheus & Loki MCP)"]
-            A1_CORE --> A1_PRIV --> A1_TOOL
+            A1_SYS1 --> A1_CORE --> A1_PRIV --> A1_TOOL
         end
 
         %% Middle Arm: Code & Patch Synthesizer
         subgraph ARM2["Octo-Arm 2: Patch Synthesizer"]
             direction TB
-            A2_CORE["Adapter & SLM 3B (AST Refactoring Reflex)"]
+            A2_SYS1["System-1 Synaptic Engine (Karpo-2B / Laya)"]
+            A2_CORE["System-2 Generative SLM (Qwen3.5-4B AST Reflex)"]
             A2_PRIV["Private Ganglion Store (AST Tree & Few-Shot Snippets)"]
             A2_TOOL["Sucker / Tool SPI (Git & Sandbox MCP)"]
-            A2_CORE --> A2_PRIV --> A2_TOOL
+            A2_SYS1 --> A2_CORE --> A2_PRIV --> A2_TOOL
         end
 
         %% Right Arm: Security & Policy Auditor (Representative of Arms 3..8)
         subgraph ARM3["Octo-Arm 3: Security Auditor (Arms 3..8)"]
             direction TB
-            A3_CORE["Adapter & SLM 1.5B (Policy Gatekeeper)"]
+            A3_SYS1["System-1 Direct Executor (Karpo-2B Readout)"]
+            A3_CORE["System-2 Generative SLM (Optional Explanation)"]
             A3_PRIV["Private Ganglion Store (CVE Cache & RBAC Rules)"]
             A3_TOOL["Sucker / Tool SPI (Falco & Cloud Custodian MCP)"]
-            A3_CORE --> A3_PRIV --> A3_TOOL
+            A3_SYS1 --> A3_CORE --> A3_PRIV --> A3_TOOL
         end
     end
 
@@ -91,7 +103,16 @@ flowchart TD
 Octpex is designed as an **unopinionated distributed agent fabric** rather than a monolithic single-process SDK. Through three standardized extension layers, existing agent frameworks embed cleanly into Octpex without rewriting domain logic:
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
     subgraph LAYER4["Macro Orchestration Layer (GlobalOrchestratorSPI)"]
@@ -127,7 +148,7 @@ flowchart TD
 | Ecosystem Framework | Integration Layer | Integration Mechanism & Architectural Value |
 | :--- | :--- | :--- |
 | **LangGraph** | `GlobalOrchestratorSPI` or `ArmRuntimeAdapterSPI` | Mounts complex cyclic state machines with native `interrupt()` HITL checkpoints at the Brain level, or wraps existing LangGraph subgraphs as specialized edge Arms. |
-| **Google ADK (Go / Python)** | `ArmRuntimeAdapterSPI` | Wraps lightweight ADK agents inside Octo-Arms, pairing ADK's tool/session abstractions with Octpex's local SLM reflex loop and Basal Nerve Ring discovery. |
+| **Google ADK (Go / Python)** | `ArmRuntimeAdapterSPI` | Wraps lightweight ADK agents inside Octo-Arms, pairing ADK's tool/session abstractions with Octpex's local System-1/System-2 reflex loop and Basal Nerve Ring discovery. |
 | **Microsoft AutoGen / Semantic Kernel / Agent Framework** | `ArmRuntimeAdapterSPI` | Encapsulates multi-turn debate/critic groups or enterprise .NET/Python semantic plugins as a single capability-registered Octo-Arm on the bus. |
 | **CrewAI** | `ArmRuntimeAdapterSPI` | Mounts role-playing task crews as domain-specific edge ganglia while offloading cross-crew routing and state sharing to the Shared Data Substrate. |
 | **Temporal** | `GlobalOrchestratorSPI` | Backs `Octo-Brain` with durable event-sourced execution for long-running, mission-critical financial or supply-chain workflows. |
@@ -162,6 +183,7 @@ Octpex implements a two-tier data architecture—**Arm-Private Storage** paired 
 | `Octo-Arm <-> Octo-Arm` | NATS pub-sub / peer gRPC | Lightweight handoff events and Shared Data Substrate pointers (`sub://`) |
 | `Octo-Arm <-> Data Substrate` | Redis protocol / object-store API / SQLite | Collaborative artifact storage with CAS versioning and leases |
 | `Octo-Arm -> External Tools` | MCP (`stdio` / Streamable HTTP), REST/gRPC | JSON-RPC or HTTP tool requests |
+| `Octo-Arm -> System-1 Decision` | HTTP (`POST /v1/systemone`) / In-Process ONNX | Non-autoregressive single-pass readout (`choice` / `noul` / `score`) |
 
 #### E. Task Durability
 
@@ -169,25 +191,54 @@ In the `cluster` profile, accepted tasks must use durable delivery. A worker ack
 
 ---
 
-### 3.2 Objective Escalation Funnel (Zero-Trust in SLM Self-Rating)
+### 3.2 Three-Tier Cognitive Escalation Ladder & Objective Escalation Funnel
 
-> **Core Design Principle:** *Never trust an SLM to self-report its own confidence. Escalation boundaries must be deterministically enforced by the host runtime using pre-flight policy/distance checks, external verifiers, mathematical token logprobs, and behavioral loop detectors.*
+> **Core Design Principle:** *Never trust an autoregressive generative SLM to self-report its own confidence. Routing, discriminative edge execution, and post-generation quality gating are enforced deterministically by combining a non-autoregressive System-1 Decision Engine (`Karpo-Decision` / `Laya`), deterministic verifiers (Schema/AST/Exit Codes), and behavioral loop detectors.*
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
-    START["Sub-Task Arrives at Octo-Arm"] --> G1{"Gate 1: Pre-Flight Policy & Distance Check"}
-    G1 -->|"High Risk Mutation | OOD Distance < 0.65 | Token Overflow"| ESC1["Escalate to Octo-Brain (Gate 1 Triggered)"]
-    G1 -->|"Passed"| ACT["Act: Local SLM Generates Output & Invokes Local Tools"]
+    START["Sub-Task Arrives at Octo-Arm"] --> TIER1{"Tier 1: System-1 Synaptic Engine (Karpo-Decision / Laya)"}
+    
+    TIER1 -->|"High-Risk Policy | OOD Domain | Token Overflow"| ESC1["Escalate to Octo-Brain (Gate 1 Triggered)"]
+    TIER1 -->|"Pure Discriminative Task & Confidence >= 0.75"| DIRECT_RES["Tier 1 Direct Resolve: Output Calibrated Choice/Score (0 LLM Tokens)"]
+    TIER1 -->|"Requires Generative Synthesis / Code / JSON"| ACT["Tier 2: Generative Edge SLM (Qwen3.5-4B via Ollama)"]
+    
     ACT --> G2{"Gate 2: Deterministic Verifier (Schema, AST, Rules, Exit Codes)"}
-    G2 -->|"Passed"| G3{"Gate 3: Math Logprob & Behavioral Check"}
     G2 -->|"Failed"| RETRY_CHK{"Retry Count < max_reflex_retries (Default 3)?"}
     RETRY_CHK -->|"Yes"| RETRY["Inject Validation Error Critique into Context"] --> ACT
     RETRY_CHK -->|"No (Exhausted)"| ESC2["Escalate to Octo-Brain (Gate 2 Exhausted)"]
-    G3 -->|"Low Avg Logprob | Stagnation Loop | Hop Limit Exceeded"| ESC3["Escalate to Octo-Brain (Gate 3 Triggered)"]
+    
+    G2 -->|"Passed"| G3{"Gate 3: System-1 Post-Critique & Stagnation Loop Check"}
+    G3 -->|"System-1 Critic Rejects | Loop Hash | Hop Limit"| ESC3["Escalate to Octo-Brain (Gate 3 Triggered)"]
     G3 -->|"All Gates Passed"| RESOLVE["LOCAL_RESOLVE: Write Ref (sub://) to Shared Data Substrate"]
 ```
+
+#### Hardware-Aware Adaptive Decision Engine & VRAM Guard (`DecisionEngineSPI`)
+Because generative models (e.g., `Qwen3.5-4B` via Ollama) cannot run specialized non-autoregressive readout heads directly inside Ollama, Octpex decouples **System-1 Synaptic Decision Inference (`DecisionEngineSPI`)** from **System-2 Generative Inference (`SLMInferenceSPI`)**. On startup, each Octo-Arm runs a **Hardware Probe** to enforce a strict **VRAM Budget Guard**—preventing OOM crashes on CPU laptops and legacy 8GB GPUs (such as NVIDIA GTX 1080 without native FP16 Tensor Cores):
+
+| Hardware Tier | Detected Hardware Profile | System-2 Generative SLM (`SLMInferenceSPI`) | System-1 Decision Engine (`DecisionEngineSPI`) | OOM & Latency Safeguard |
+| :--- | :--- | :--- | :--- | :--- |
+| **Tier 0 (CPU Edge)** | No discrete GPU, RAM $< 16\text{GB}$ | `qwen3.5:0.8b` / `1.5b` (Q4) | `Laya` (ONNX INT8 on CPU) | Keeps total RAM $< 2.5\text{GB}$; decision latency $< 15\text{ms}$. |
+| **Tier 1 (Legacy / 8GB VRAM)** | 8GB VRAM (e.g., GTX 1080) | `qwen3.5:4b` (Q4_K_M, 8K ctx) | `Laya` (CPU ONNX) primary; `karpo-decision-2B` (4-bit) secondary | Pins `Laya` to system RAM (0 VRAM) to prevent competing with `Qwen3.5-4B` for the 8GB VRAM ceiling. |
+| **Tier 2 (Mid-Range / Apple Silicon)** | 12–16GB VRAM or Unified Memory | `qwen3.5:4b` (Q4/Q8, 16K ctx) | `karpo-decision-2B` / `4B` | Enables 32K decision context and multimodal screenshot inspection. |
+| **Tier 3 (Enterprise GPU)** | $\ge 24\text{GB}$ VRAM | `qwen3.5:9b` (Q8/FP8) | `karpo-decision-4B` / `31B` | Full multi-branch parallel gating with highest Decision Index calibration. |
+
+#### Dynamic Task-Aware Routing Between `Laya` and `Karpo-Decision`
+1. **Multimodal or Long Context (`tokens > 1024` or image input):** Routes to `Karpo-Decision` (supports up to 32K context and visual UI/screenshot inputs).
+2. **High-Cardinality Routing or Tool Selection (`options > 20` / `When2Call`):** Routes to `Karpo-Decision` (supports up to 255 choices with superior OOD generalization).
+3. **High-Frequency Short-Text Screening (`tokens <= 1024`):** Routes to `Laya` (in-process ONNX/MLX execution in $< 15\text{ms}$ with zero network or VRAM overhead).
+4. **Reverse-Option Calibration Check (FlexDM Pattern):** If the top option probability falls within the uncertainty band (`0.50 <= p_max < 0.65`), the runtime performs a second forward pass with reversed option ordering and averages the distributions; divergence immediately triggers `ESCALATE_TO_BRAIN`.
 
 ---
 
@@ -196,7 +247,16 @@ flowchart TD
 Octpex implements a closed-loop evolutionary cycle where central frontier reasoning is progressively crystallized into deterministic edge capabilities:
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
     ARM_GAP["Octo-Arm Escalates Capability Gap or Validation Failure"]
@@ -205,7 +265,7 @@ flowchart TD
         TOOL_REG["1. Register Script as Dynamic MCP Tool in Dynamic MCP Box"]
         FEW_SHOT["2. Distill Few-Shot Trajectory & HITL Rules into Arm-Private Memory"]
     end
-    LOCAL_PASS["Future Similar Tasks: Resolve 100% Locally via Distilled Dynamic Tool"]
+    LOCAL_PASS["Future Similar Tasks: Resolve 100% Locally via System-1 + Distilled Dynamic Tool"]
     ARM_GAP --> BRAIN_SOLVE
     BRAIN_SOLVE --> TOOL_REG
     BRAIN_SOLVE --> FEW_SHOT
@@ -226,14 +286,22 @@ flowchart TD
   "role_name": "telemetry-distiller",
   "capability_tags": ["log-parsing", "stacktrace-dedup", "k8s-diagnostics"],
   "endpoint": "nats://octpex.arm.telemetry-distiller",
+  "hardware_tier": "TIER_1_LEGACY_8GB",
+  "decision_engine_profile": {
+    "primary_engine": "laya-onnx-int8",
+    "secondary_engine": "karpo-decision-2b-4bit",
+    "endpoint": "http://127.0.0.1:8091/v1/systemone",
+    "safe_decision_context": 32768
+  },
   "slm_profile": {
     "provider": "ollama",
-    "model": "qwen2.5:3b",
-    "safe_context_limit": 6144
+    "model": "qwen3.5:4b",
+    "safe_context_limit": 8192
   },
   "escalation_gates": {
     "min_capability_similarity": 0.65,
-    "min_token_logprob": -0.51,
+    "min_system1_confidence": 0.75,
+    "uncertainty_band_low": 0.50,
     "max_reflex_retries": 3,
     "max_lateral_hops": 3
   },
@@ -249,7 +317,7 @@ flowchart TD
 ```json
 {
   "envelope_id": "env-9f8e7d6c",
-  "trace_id": "tr-20261115-001",
+  "trace_id": "tr-20261117-001",
   "session_id": "sess-8841",
   "plane": "LATERAL",
   "orchestration_pattern": "SEQUENTIAL",
@@ -274,13 +342,14 @@ flowchart TD
 ```json
 {
   "escalation_id": "esc-4412",
-  "trace_id": "tr-20261115-001",
+  "trace_id": "tr-20261117-001",
   "source_arm": "arm-patch-synthesizer-02",
   "triggered_gate": "GATE_2_REFLEX_EXHAUSTED",
   "objective_metrics": {
     "attempts_made": 3,
-    "avg_key_logprob": -0.34,
-    "capability_similarity": 0.84
+    "system1_engine": "karpo-decision-2b-4bit",
+    "system1_confidence": 0.58,
+    "reverse_option_consistent": false
   },
   "last_validation_error": "Schema violation: target replica count exceeds policy limit.",
   "distilled_context_refs": ["sub://sess-8841/distilled-error-summary"],
@@ -344,17 +413,43 @@ type ArmRuntimeAdapterSPI interface {
 }
 ```
 
-#### 3. Local SLM Inference Interface (`SLMInferenceSPI`)
+#### 3. Synaptic System-1 Decision Engine Interface (`DecisionEngineSPI`)
+```go
+type DecisionQuestion struct {
+    QID     string   `json:"qid"`
+    QType   string   `json:"qtype"`   // "choice" | "noul" | "score"
+    Prompt  string   `json:"prompt"`
+    Options []string `json:"options"` // Up to 255 candidate options for "choice"
+}
+
+type DecisionResult struct {
+    QID           string             `json:"qid"`
+    Probabilities map[string]float64 `json:"probabilities"`
+    TopOption     string             `json:"top_option"`
+    Confidence    float64            `json:"confidence"`
+    EngineUsed    string             `json:"engine_used"` // e.g., "laya-onnx-int8" or "karpo-decision-2b"
+    LatencyMs     int64              `json:"latency_ms"`
+}
+
+type DecisionEngineSPI interface {
+    // Evaluates typed questions in a single non-autoregressive forward pass (Question-List-First layout)
+    Decide(ctx context.Context, stateText string, questions []DecisionQuestion, images [][]byte) ([]DecisionResult, error)
+    // Reports detected hardware tier and active backing engine
+    ActiveProfile() string
+}
+```
+
+#### 4. Local Generative SLM Inference Interface (`SLMInferenceSPI`)
 ```go
 type SLMInferenceSPI interface {
-    // Generates inference response and extracts critical field token logprobs
+    // Generates text/JSON/code response via local generative runtime (e.g., Ollama Qwen3.5-4B)
     Generate(ctx context.Context, req *InferenceRequest) (*InferenceResponse, error)
     // Returns maximum safe context token capacity
     ContextCapacity() int
 }
 ```
 
-#### 4. Shared Data Substrate Interface (`DataSubstrateSPI`)
+#### 5. Shared Data Substrate Interface (`DataSubstrateSPI`)
 ```go
 type DataSubstrateSPI interface {
     // Puts an artifact with CAS version validation
@@ -366,7 +461,7 @@ type DataSubstrateSPI interface {
 }
 ```
 
-#### 5. Tool & Sandbox Invocation Interface (`ToolInvocationSPI`)
+#### 6. Tool & Sandbox Invocation Interface (`ToolInvocationSPI`)
 ```go
 type ToolInvocationSPI interface {
     // Invokes static or dynamic MCP tools / external APIs
@@ -391,9 +486,9 @@ octpex/
 │   └── octpex/v1/nervous_bus.proto  # gRPC & message envelope definitions
 ├── pkg/ (or octpex/)
 │   ├── core/
-│   │   ├── spi.go (or spi.py)       # Core SPI contracts (Orchestrator, Arm, SLM, DataSubstrate, Tool)
+│   │   ├── spi.go (or spi.py)       # Core SPI contracts (Orchestrator, Arm, Decision, SLM, Substrate, Tool)
 │   │   ├── envelope.go              # NervousEnvelope, EscalationPayload & EvolvedSkillRecord
-│   │   └── telemetry.go             # FinOps metrics (Offload Rate, Token Savings, Skill Reuse)
+│   │   └── telemetry.go             # FinOps metrics (Offload Rate, System-1 Rate, Token Savings)
 │   ├── brain/
 │   │   ├── cortex.go                # Octo-Brain planner, arbiter & HITL hook
 │   │   ├── distiller.go             # Dynamic MCP tool & skill synthesizer
@@ -405,11 +500,14 @@ octpex/
 │   │   └── bus.go                   # Vertical & Lateral Nervous Bus routers
 │   ├── arm/
 │   │   ├── ganglion.go              # Octo-Arm worker lifecycle & heartbeat loop
+│   │   ├── hardware_probe.go        # GPU/VRAM detection & adaptive model tiering guard
 │   │   ├── reflex.go                # Act -> Inspect -> Retry engine
-│   │   ├── escalation_gate.go       # 3-Gate Objective Escalation Funnel (Policy/Verifier/Logprob)
+│   │   ├── escalation_gate.go       # Three-Tier Cognitive Ladder & Objective Escalation Funnel
 │   │   └── local_storage.go         # Arm-private vector, scratchpad, few-shot & KV store
 │   └── adapters/
-│       ├── slm_ollama.go            # Local SLM runtime adapter with logprobs support
+│       ├── decision_karpo.go        # Karpo-Decision (/v1/systemone) HTTP client adapter
+│       ├── decision_laya.go         # Laya (ModernBERT ONNX INT8) in-process CPU adapter
+│       ├── slm_ollama.go            # Local generative SLM runtime adapter (Qwen3.5-4B / 1.5B)
 │       ├── tool_mcp.go              # MCP protocol client adapter
 │       └── framework_bridge.go      # Wrappers for Google ADK, LangGraph, AutoGen & CrewAI
 └── examples/
@@ -422,13 +520,13 @@ octpex/
 
 ## 6. System Core Capabilities & Production Feature Architecture
 
-Octpex delivers a complete, production-grade distributed biomimetic nervous architecture structured across five integrated capability tiers:
+Octpex delivers a complete, production-grade distributed biomimetic nervous architecture structured across six integrated capability tiers:
 
 ### 6.1 Single-Node Biomimetic Kernel (`profile: local`)
 * **Canonical Envelope Protocol (`pkg/protocol`)**: Standardizes `NervousEnvelope`, `ArmManifest`, `SubstrateRef`, and `SecurityContext` with immutable CAS version tags and token attenuation bounds.
 * **Dual-Plane In-Memory Bus (`pkg/bus`)**: Sub-microsecond local channel multiplexer separating vertical task dispatching from peer-to-peer lateral handoffs.
 * **Zero-Copy Shared Data Substrate (`pkg/substrate`)**: In-memory Compare-And-Swap (CAS) data layer resolving state via `sub://{session_id}/{artifact}` references without redundant payload duplication.
-* **Tri-Gate Objective Escalation Funnel (`pkg/gates`)**: Hard deterministic verification pipeline (Gate 1 Pre-flight Context/OOD, Gate 2 JSON Schema/AST/ExitCode, Gate 3 Math Logprob & Hop Limit).
+* **Three-Tier Cognitive Escalation Ladder (`pkg/gates`)**: Combines System-1 synaptic readouts (`Karpo-Decision` / `Laya`), System-2 local generative SLMs (`Qwen3.5-4B` via Ollama), and deterministic verifiers with Hardware VRAM Guards.
 
 ### 6.2 Basal Nerve Ring & Distributed Cluster (`profile: cluster`)
 * **NATS JetStream Dual-Plane Transport**: Horizontally scalable distributed messaging bus with queue group consumer rebalancing and backpressure control.
@@ -437,7 +535,7 @@ Octpex delivers a complete, production-grade distributed biomimetic nervous arch
 * **Multi-Region Cross-Cluster Federation (`pkg/ring/federation.go`)**: Cross-datacenter peer routing with inter-cluster hop attenuation and active latency probe telemetry.
 
 ### 6.3 Multi-Framework Ecosystem & Heterogeneous Python Mesh (`bridge/python`)
-* **Unified Intelligence Spectrum**: Supports Level 0 (Deterministic Go FSMs), Level 1 (Local SLM Ganglia via Ollama), Level 2 (Wrapped Single Agents), and Level 3 (Multi-Agent Crews).
+* **Unified Intelligence Spectrum**: Supports Level 0 (Deterministic Go FSMs), Level 1 (System-1 Non-Autoregressive Decision Readouts via Karpo/Laya), Level 2 (Local Generative SLM Ganglia via Ollama), and Level 3 (Wrapped Multi-Agent Crews).
 * **Heterogeneous Framework Adapters**: Native production wrappers for **Google ADK**, **LangGraph**, **Microsoft AutoGen**, and **CrewAI**.
 * **Autonomous Arm Runner (`OctoArmDaemon`)**: Python worker runner capable of executing local reflex loops and communicating with the Octpex Go kernel via REST APIs.
 
@@ -448,7 +546,7 @@ Octpex delivers a complete, production-grade distributed biomimetic nervous arch
 
 ### 6.5 Real-Time Observability & FinOps Governance (`pkg/server`, `pkg/telemetry`)
 * **Asynchronous Web Visual Dashboard**: Single-page interactive HTML5 dashboard dynamically powered by Server-Sent Events (SSE: `/api/v1/events`).
-* **FinOps Cost & Token ROI Engine**: Continuous tracking of cloud tokens, edge SLM tokens, latency savings, and financial dollar savings against frontier commercial baselines.
+* **FinOps Cost & Token ROI Engine**: Continuous tracking of cloud tokens, edge SLM tokens, System-1 zero-token resolutions, latency savings, and financial dollar savings against frontier commercial baselines.
 * **Extreme Performance Benchmarks**: Validated kernel throughput exceeding **9.6M+ CAS ops/s**, **8.1M+ bus msgs/s**, and **1.6M+ gate verifications/s**.
 
 ### 6.6 Cloud-Native Deployment & Enterprise Helm Packaging (`deploy/`)

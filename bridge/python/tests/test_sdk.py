@@ -12,11 +12,64 @@ from octpex import (
     InMemorySubstrateClient,
     ArmConfig,
     OctoArmDaemon,
+    DecisionEngineProfile,
+    DecisionQuestion,
+    DecisionResult,
+    System1Metrics,
+    HARDWARE_TIER_1_LEGACY_8GB,
 )
 from octpex.adapters import LangGraphArmAdapter, CrewAIArmAdapter, GoogleADKArmAdapter, AutoGenArmAdapter
 
 
 class TestOctpexPythonSDK(unittest.TestCase):
+
+    def test_decision_engine_profile_and_metrics(self):
+        profile = DecisionEngineProfile(
+            primary_engine="laya-onnx-int8",
+            secondary_engine="karpo-decision-2b-4bit",
+            endpoint="http://127.0.0.1:8091/v1/systemone",
+            safe_decision_context=32768,
+            vram_budget_mb=0,
+        )
+        d = profile.to_dict()
+        self.assertEqual(d["vram_budget_mb"], 0)
+        self.assertEqual(d["primary_engine"], "laya-onnx-int8")
+
+        reconstructed = DecisionEngineProfile.from_dict(d)
+        self.assertEqual(reconstructed.safe_decision_context, 32768)
+
+        # DecisionQuestion & Result
+        q = DecisionQuestion(qid="q-1", qtype="choice", prompt="Direct resolve?", options=["YES", "NO"])
+        self.assertEqual(len(q.to_dict()["options"]), 2)
+
+        res = DecisionResult(
+            qid="q-1",
+            probabilities={"YES": 0.95, "NO": 0.05},
+            top_option="YES",
+            confidence=0.95,
+            engine_used="laya-onnx-int8",
+            latency_ms=12,
+        )
+        self.assertEqual(res.to_dict()["top_option"], "YES")
+
+        # System1Metrics
+        m = System1Metrics(
+            system1_engine="laya-onnx-int8",
+            system1_confidence=0.95,
+            reverse_option_consistent=True,
+            decision_latency_ms=12,
+        )
+        self.assertTrue(m.to_dict()["reverse_option_consistent"])
+
+        # ArmConfig with hardware tier
+        cfg = ArmConfig(
+            arm_id="arm-synaptic-1",
+            capability="discriminative",
+            hardware_tier=HARDWARE_TIER_1_LEGACY_8GB,
+            decision_profile=profile,
+        )
+        self.assertEqual(cfg.hardware_tier, HARDWARE_TIER_1_LEGACY_8GB)
+        self.assertIsNotNone(cfg.decision_profile)
 
     def test_envelope_serialization(self):
         env = NervousEnvelope(

@@ -110,3 +110,59 @@ func TestSLMGanglionReflexRetriesExhausted(t *testing.T) {
 		t.Fatalf("expected status ESCALATED after 3 failed retries, got: %s", res.Status)
 	}
 }
+
+func TestSLMGanglionSynapticDirectResolution(t *testing.T) {
+	ctx := context.Background()
+	sub := substrate.NewInMemorySubstrate()
+
+	mockEngine := &mockSLMEngine{
+		responses: []*InferenceResponse{
+			{Content: `should not be called`, AvgLogprob: -0.10},
+		},
+	}
+
+	arm := NewSLMGanglionAdapter(sub, mockEngine, nil)
+	manifest := &protocol.ArmManifest{
+		ArmID:          "arm-synaptic-direct",
+		RuntimeAdapter: "ollama",
+		RoleName:       "format-router",
+		CapabilityTags: []string{"route-format"},
+		Endpoint:       "local://arm-synaptic-direct",
+		DecisionEngineProfile: protocol.DecisionEngineProfile{
+			PrimaryEngine: "laya-onnx-int8",
+		},
+		EscalationGates: protocol.EscalationGates{
+			MinCapabilitySimilarity: 0.65,
+			MinSystem1Confidence:    0.75,
+		},
+	}
+	if err := arm.Init(ctx, manifest); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	env := protocol.NewEnvelope("env-syn-1", "tr-syn-1", "sess-syn", protocol.PlaneLateral, protocol.MsgTaskDispatch, "worker")
+	env.Parameters["prompt"] = "Select output schema format: FORMAT_JSON"
+	env.Parameters["options"] = []string{"FORMAT_JSON", "FORMAT_XML", "FORMAT_CSV"}
+
+	res, err := arm.ExecuteStep(ctx, env)
+	if err != nil {
+		t.Fatalf("execute step failed: %v", err)
+	}
+
+	if res.Status != "SUCCESS" {
+		t.Fatalf("expected direct SUCCESS, got: %s (msg: %s)", res.Status, res.OutputMessage)
+	}
+	if res.OutputMessage != "FORMAT_JSON" {
+		t.Fatalf("expected top option FORMAT_JSON, got: %s", res.OutputMessage)
+	}
+	if res.Metadata["resolution_tier"] != "TIER_1_SYNAPTIC" {
+		t.Fatalf("expected TIER_1_SYNAPTIC, got: %v", res.Metadata["resolution_tier"])
+	}
+	if res.Metadata["tokens_consumed"] != 0 {
+		t.Fatalf("expected 0 tokens consumed, got: %v", res.Metadata["tokens_consumed"])
+	}
+	// Verify generative SLM was NEVER invoked (0 token consumption)
+	if mockEngine.callCount != 0 {
+		t.Fatalf("expected SLM inference callCount == 0, got: %d", mockEngine.callCount)
+	}
+}

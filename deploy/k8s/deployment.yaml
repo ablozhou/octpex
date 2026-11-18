@@ -16,7 +16,7 @@ data:
       escalation_timeout_ms: 30000
       frontier_provider: "openai"
       frontier_base_url: "https://api.openai.com/v1"
-      frontier_model: "gpt-4o"
+      frontier_model: "frontier-reasoning"
       frontier_temperature: 0.1
     ring:
       registry_type: "etcd"

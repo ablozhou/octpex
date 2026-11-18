@@ -284,6 +284,24 @@ func runSelfDiagnostic() {
 	}
 	fmt.Printf("[Storage  ] Ganglion Store & Cosine Search    : %s (latency: %v)\n", statusStore, durStore)
 
+	// 6. System-1 Hardware Tier & Synaptic Engine Self-Test
+	start = time.Now()
+	hwProfile := driver.ProbeHostHardware()
+	layaEngine := adapter.NewLayaAdapter()
+	testQ := protocol.DecisionQuestion{
+		QID:     "diag-q1",
+		QType:   "choice",
+		Prompt:  "Determine self-diagnostic status",
+		Options: []string{"HEALTHY", "DEGRADED"},
+	}
+	decRes, errDec := layaEngine.Decide(ctx, "diagnostic healthy", []protocol.DecisionQuestion{testQ}, nil)
+	durHw := time.Since(start)
+	statusHw := "PASS"
+	if errDec != nil || len(decRes) == 0 || decRes[0].Confidence < 0.70 {
+		statusHw = "FAIL"
+	}
+	fmt.Printf("[System-1 ] Hardware Tier (%s) & Synaptic Engine : %s (latency: %v)\n", hwProfile.Tier, statusHw, durHw)
+
 	fmt.Println("================================================================================")
 	fmt.Println("                     DIAGNOSTIC SUMMARY: ALL SUBSYSTEMS HEALTHY                 ")
 	fmt.Println("================================================================================")
@@ -328,7 +346,7 @@ func runSystemBenchmark() {
 	const iterations = 50000
 
 	// 1. Benchmark Substrate CAS Throughput
-	fmt.Printf("[1/3] Benchmarking Shared Data Substrate CAS (%d atomic updates)...\n", iterations)
+	fmt.Printf("[1/4] Benchmarking Shared Data Substrate CAS (%d atomic updates)...\n", iterations)
 	sub := substrate.NewInMemorySubstrate()
 	uri := "sub://sess-bench/atomic_value"
 	_, _ = sub.PutArtifact(ctx, uri, 0, []byte("init"), time.Hour)
@@ -346,7 +364,7 @@ func runSystemBenchmark() {
 	subAvgLatency := subDuration / iterations
 
 	// 2. Benchmark Nervous Bus Envelope Dispatch Throughput
-	fmt.Printf("[2/3] Benchmarking Dual-Plane Nervous Bus (%d envelope dispatches)...\n", iterations)
+	fmt.Printf("[2/4] Benchmarking Dual-Plane Nervous Bus (%d envelope dispatches)...\n", iterations)
 	nervousBus := bus.NewLocalNervousBus(8192)
 	defer nervousBus.Close()
 
@@ -376,7 +394,7 @@ func runSystemBenchmark() {
 	busAvgLatency := busDuration / iterations
 
 	// 3. Benchmark Tri-Gate 1 & 2 Verification Latency
-	fmt.Printf("[3/3] Benchmarking Tri-Gate Objective Funnel (%d verifications)...\n", iterations)
+	fmt.Printf("[3/4] Benchmarking Tri-Gate Objective Funnel (%d verifications)...\n", iterations)
 	gateEnv := &protocol.NervousEnvelope{
 		EnvelopeID:       "env-gate-1",
 		TraceID:          "tr-gate-1",
@@ -386,8 +404,8 @@ func runSystemBenchmark() {
 		Security:         protocol.DefaultSecurityContext("sess-gate"),
 	}
 	gateManifest := &protocol.ArmManifest{
-		ArmID:          "arm-bench-01",
-		CapabilityTags: []string{"distill-telemetry"},
+		ArmID:           "arm-bench-01",
+		CapabilityTags:  []string{"distill-telemetry"},
 		EscalationGates: protocol.DefaultEscalationGates(),
 	}
 	schemaPayload := []byte(`{"status":"ok","code":200}`)
@@ -401,6 +419,25 @@ func runSystemBenchmark() {
 	gateOpsPerSec := float64(iterations) / gateDuration.Seconds()
 	gateAvgLatency := gateDuration / iterations
 
+	// 4. Benchmark System-1 Synaptic Engine Decision Throughput
+	fmt.Printf("[4/4] Benchmarking System-1 Synaptic Engine (%d single-pass evaluations)...\n", iterations)
+	benchLaya := adapter.NewLayaAdapter()
+	benchQ := []protocol.DecisionQuestion{
+		{
+			QID:     "bench-q",
+			QType:   "choice",
+			Prompt:  "Evaluate lateral routing path",
+			Options: []string{"ARM_A", "ARM_B", "ESCALATE"},
+		},
+	}
+	startSynaptic := time.Now()
+	for i := 0; i < iterations; i++ {
+		_, _ = benchLaya.Decide(ctx, "bench-state", benchQ, nil)
+	}
+	synapticDuration := time.Since(startSynaptic)
+	synapticOpsPerSec := float64(iterations) / synapticDuration.Seconds()
+	synapticAvgLatency := synapticDuration / iterations
+
 	// Print Summary Table
 	fmt.Println("\n================================================================================")
 	fmt.Println("                       PERFORMANCE BENCHMARK SUMMARY                            ")
@@ -410,5 +447,6 @@ func runSystemBenchmark() {
 	fmt.Printf("%-32s | %13.0f ops/s | %v\n", "Shared Substrate CAS", subOpsPerSec, subAvgLatency)
 	fmt.Printf("%-32s | %13.0f ops/s | %v\n", "Local Nervous Bus (Envelope)", busOpsPerSec, busAvgLatency)
 	fmt.Printf("%-32s | %13.0f ops/s | %v\n", "Tri-Gate Schema Verifier", gateOpsPerSec, gateAvgLatency)
+	fmt.Printf("%-32s | %13.0f ops/s | %v\n", "System-1 Synaptic Engine", synapticOpsPerSec, synapticAvgLatency)
 	fmt.Println("================================================================================")
 }

@@ -49,7 +49,7 @@ config:
     escalationTimeoutMs: 30000
     frontierProvider: "openai"
     frontierBaseURL: "https://api.openai.com/v1"
-    frontierModel: "gpt-4o"
+    frontierModel: "frontier-reasoning"
     frontierTemperature: 0.1
   ring:
     registryType: "etcd"

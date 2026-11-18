@@ -1,4 +1,4 @@
-﻿# Octpex Comprehensive Developer & Integration Guide
+# Octpex Comprehensive Developer & Integration Guide
 
 This guide provides developers, contributors, and integrators with everything needed to build, wrap, and extend agents on the Octpex Biomimetic Nervous System.
 
@@ -299,7 +299,7 @@ response = daemon.dispatch_to_kernel(envelope)
 ## 4. Model Context Protocol (MCP) and Compute
 
 - **Local Edge SLM (Ollama)**: `pkg/adapter/ollama.go` connects to `localhost:11434` with strict JSON mode.
-- **Central Frontier LLM**: `pkg/brain/frontier.go` connects to Gemini / OpenAI / Claude API endpoints.
+- **Central Frontier LLM**: `pkg/brain/frontier.go` connects to Claude / GPT / Gemini / Qwen / DeepSeek API endpoints.
 - **MCP Client (`pkg/mcp`)**: Spawns external tool processes over `stdio` or connects via streaming HTTP.
 - **Dynamic MCP Box (`pkg/tool`)**: Integrates external MCP servers via `dynamicMCPBox.RegisterMCPServer(ctx, client)` with AbloEx pre-admission static AST safety checks.
 

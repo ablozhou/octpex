@@ -10,11 +10,11 @@ import (
 	"time"
 )
 
-// FrontierClientConfig defines configuration for frontier LLMs (Gemini, Claude, GPT-4o, DeepSeek-V3).
+// FrontierClientConfig defines configuration for frontier LLMs (Claude, GPT, Gemini, Qwen, DeepSeek).
 type FrontierClientConfig struct {
 	BaseURL    string        `json:"base_url"` // e.g. "https://api.openai.com/v1" or compatible endpoint
 	APIKey     string        `json:"api_key"`
-	Model      string        `json:"model"`    // e.g. "gemini-1.5-pro", "gpt-4o", "claude-3-5-sonnet"
+	Model      string        `json:"model"`    // e.g. "claude", "gpt", "gemini", "qwen", "deepseek"
 	Timeout    time.Duration `json:"timeout"`
 	HTTPClient *http.Client  `json:"-"`
 }

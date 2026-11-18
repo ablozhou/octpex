@@ -300,7 +300,7 @@ response = daemon.dispatch_to_kernel(envelope)
 ## 4. 模型上下文协议 (MCP) 与算力挂载
 
 - **边缘本地 SLM (Ollama)**：`pkg/adapter/ollama.go` 直连 `localhost:11434`，强制 JSON Mode 输出与 Token 遥测。
-- **中心前沿 LLM**：`pkg/brain/frontier.go` 对接云端 Gemini / OpenAI / Claude API。
+- **中心前沿 LLM**：`pkg/brain/frontier.go` 对接云端 Claude / GPT / Gemini / Qwen（千问）/ DeepSeek 等商用与开源大模型 API。
 - **标准 MCP 客户端 (`pkg/mcp`)**：通过 `stdio` 管道拉起外部子进程或通过流式 HTTP 连接。
 - **动态 MCP 盒子 (`pkg/tool`)**：外部 MCP Server 工具经 AbloEx 静态 AST 扫描后直接注册入神经环基底 `DynamicMCPBox`。
 

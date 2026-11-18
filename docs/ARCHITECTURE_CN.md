@@ -1,16 +1,25 @@
-﻿# 系统架构与工程实现规范：Octpex
+# 系统架构与工程实现规范：Octpex
 
-**文档版本：** 1.1.0  
-**适用范围：** 仿生分布式拓扑、多框架生态集成、客观升级漏斗、标准数据契约、SPI 接口定义及分阶段实施路径  
+**文档版本：** 2.2.0  
+**适用范围：** 仿生分布式拓扑、多框架生态集成、三级认知阶梯升级漏斗、硬件感知 System-1 决策引擎、标准数据契约、SPI 接口定义及安全治理规范  
 
 ---
 
 ## 1. 仿生系统拓扑架构
 
-Octpex 借鉴头足类动物（章鱼）的分布式神经生物学结构，将智能体算力与状态组织为三个核心层级：**Octo-Brain（中枢大脑皮层）**、**Basal Nerve Ring（腕足根部神经环 / 共享协调底座）** 以及 **Octo-Arms（边缘神经节腕足）**。
+Octpex 借鉴头足类动物（章鱼）的分布式神经生物学结构，将智能体算力与状态组织为三个核心层级：**Octo-Brain（中枢大脑皮层）**、**Basal Nerve Ring（腕足根部神经环 / 共享协调底座）** 以及 **Octo-Arms（边缘神经节腕足）**。每条 Octo-Arm 腕足内置双层神经结构：**System-1 非自回归突触决策引擎**（`Karpo-Decision` / `Laya`）与 **System-2 生成式小模型**（`Qwen3.5-4B` / `1.5B`）。
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
 
@@ -36,28 +45,31 @@ flowchart TD
         %% 左侧腕足 1: 遥测数据蒸馏腕足
         subgraph ARM1["Octo-Arm 1: 遥测数据蒸馏腕足"]
             direction TB
-            A1_CORE["适配器与局部小模型 0.5B (日志过滤压缩)"]
+            A1_SYS1["System-1 突触引擎 (Laya / Karpo-2B)"]
+            A1_CORE["System-2 生成式小模型 (Qwen3.5-4B 日志压缩)"]
             A1_PRIV["神经节私有存储 (原始日志与私有向量库)"]
             A1_TOOL["吸盘 / 工具 SPI (Prometheus & Loki MCP)"]
-            A1_CORE --> A1_PRIV --> A1_TOOL
+            A1_SYS1 --> A1_CORE --> A1_PRIV --> A1_TOOL
         end
 
         %% 中间腕足 2: 补丁合成与修复腕足
         subgraph ARM2["Octo-Arm 2: 补丁合成与修复腕足"]
             direction TB
-            A2_CORE["适配器与局部小模型 3B (代码重构与单测)"]
+            A2_SYS1["System-1 突触引擎 (Karpo-2B / Laya)"]
+            A2_CORE["System-2 生成式小模型 (Qwen3.5-4B AST 重构)"]
             A2_PRIV["神经节私有存储 (配置 AST 与 Few-Shot 样本)"]
             A2_TOOL["吸盘 / 工具 SPI (Git 提交与编译沙箱 MCP)"]
-            A2_CORE --> A2_PRIV --> A2_TOOL
+            A2_SYS1 --> A2_CORE --> A2_PRIV --> A2_TOOL
         end
 
         %% 右侧腕足 3: 安全合规审计腕足 (代表分布式腕足群 3..8)
         subgraph ARM3["Octo-Arm 3: 安全合规审计腕足 (腕足 3..8)"]
             direction TB
-            A3_CORE["适配器与局部小模型 1.5B (规则安全门禁)"]
+            A3_SYS1["System-1 直接执行器 (Karpo-2B 判别读出)"]
+            A3_CORE["System-2 生成式小模型 (可选生成式解释)"]
             A3_PRIV["神经节私有存储 (CVE 规则库与 RBAC 策略)"]
             A3_TOOL["吸盘 / 工具 SPI (Falco & 云合规 MCP)"]
-            A3_CORE --> A3_PRIV --> A3_TOOL
+            A3_SYS1 --> A3_CORE --> A3_PRIV --> A3_TOOL
         end
     end
 
@@ -91,7 +103,16 @@ flowchart TD
 Octpex 的核心设计理念是成为一套**非侵入式的分布式智能体认知底座（Distributed Cognitive Fabric）**，而非封闭的单进程 SDK。通过三层标准化适配器接口，业界主流框架无需重写业务逻辑即可无缝嵌入 Octpex 协同网络：
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
     subgraph LAYER4["第四层：宏观全局编排层 (GlobalOrchestratorSPI)"]
@@ -127,7 +148,7 @@ flowchart TD
 | 生态框架 / 协议 | 挂载扩展层 | 集成方式与核心架构价值 |
 | :--- | :--- | :--- |
 | **LangGraph** | `GlobalOrchestratorSPI` 或 `ArmRuntimeAdapterSPI` | 在大脑层利用其原生 `interrupt()` 检查点驱动带人工审批的全局有环状态图；或在边缘端将现有 LangGraph 子图直接封装为专业腕足节点。 |
-| **Google ADK (Go / Python)** | `ArmRuntimeAdapterSPI` | 将轻量级 ADK 智能体包装进 `Octo-Arm` 内部，把 ADK 简洁的会话/工具抽象与 Octpex 的本地小模型自愈循环及根部服务发现结合。 |
+| **Google ADK (Go / Python)** | `ArmRuntimeAdapterSPI` | 将轻量级 ADK 智能体包装进 `Octo-Arm` 内部，把 ADK 简洁的会话/工具抽象与 Octpex 的本地 System-1/System-2 反射弧及根部服务发现结合。 |
 | **Microsoft AutoGen / Semantic Kernel** | `ArmRuntimeAdapterSPI` | 将多智能体辩论群组或 .NET/Python 企业级语义插件封装为一个统一注册能力标签的 `Octo-Arm` 接入总线。 |
 | **CrewAI** | `ArmRuntimeAdapterSPI` | 将角色扮演型任务团队挂载为领域专属边缘腕足，跨团队路由与大体积中间状态交由根部共享数据基质统一托管。 |
 | **Temporal** | `GlobalOrchestratorSPI` | 为 `Octo-Brain` 提供基于事件溯源的持久化执行保障，适用于跨天级、不可中断的金融或供应链关键业务流。 |
@@ -162,6 +183,7 @@ Octpex 采用“**局部私有存储 + 根部共享基质**”的两级数据存
 | `Octo-Arm <-> Octo-Arm` | NATS 发布订阅 / 节点间 gRPC | 轻量级接力事件与共享数据基质引用（`sub://`） |
 | `Octo-Arm <-> Data Substrate` | Redis 协议 / 对象存储 API / SQLite | 带 CAS 版本控制和租约的协同产物存储 |
 | `Octo-Arm -> 外部工具` | MCP（`stdio` / Streamable HTTP）、REST/gRPC | JSON-RPC 或 HTTP 工具请求 |
+| `Octo-Arm -> System-1 决策引擎` | HTTP（`POST /v1/systemone`）/ 进程内 ONNX | 非自回归单次前向读出（`choice` / `noul` / `score`） |
 
 #### E. 任务持久性
 
@@ -169,37 +191,54 @@ Octpex 采用“**局部私有存储 + 根部共享基质**”的两级数据存
 
 ---
 
-### 3.2 客观升级漏斗门禁（对小模型自评保持“零信任”）
+### 3.2 三级认知阶梯与客观升级漏斗（对生成式大模型自评保持“零信任”）
 
-> **核心工程原则：** *永远不要相信本地小模型（0.5B–3B）对自己输出置信度的主观打分。所有升级（Escalation）边界必须由宿主运行时代码通过前置策略与语义距离门禁、外部确定性验证器、数学对数概率以及行为死循环检测器强制执行。*
+> **核心设计原则：** *永远不要相信自回归生成式小模型对自己输出置信度的主观打分。任务路由分流、判别型末端执行与生成后置质检，由非自回归 System-1 突触决策引擎（`Karpo-Decision` / `Laya`）、确定性硬校验器（Schema/AST/退出码）以及行为死循环检测器联合进行确定性强制裁决。*
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
-    START["子任务到达 Octo-Arm 腕足"] --> G1{"Gate 1: 前置策略与语义距离硬门禁"}
-    G1 -->|"高危生产策略 | 陌生领域相似度 < 0.65 | 上下文超限"| ESC1["强制升级至 Octo-Brain (Gate 1 触发)"]
-    G1 -->|"通过前置门禁"| ACT["Act: 本地 SLM 生成输出并尝试调用本地工具"]
+    START["子任务到达 Octo-Arm 腕足"] --> TIER1{"Tier 1: System-1 突触决策引擎 (Karpo-Decision / Laya)"}
+    
+    TIER1 -->|"命中高危策略 | 陌生领域 OOD | 上下文超限"| ESC1["强制升级至 Octo-Brain (Gate 1 触发)"]
+    TIER1 -->|"纯判别型任务且置信度 >= 0.75"| DIRECT_RES["Tier 1 直接闭环: 输出校准选项/得分 (0 Token 消耗)"]
+    TIER1 -->|"需生成式合成 / 代码编写 / 复杂 JSON"| ACT["Tier 2: 本地生成式小模型 (Qwen3.5-4B via Ollama)"]
+    
     ACT --> G2{"Gate 2: 外部确定性验证器 (Schema / AST / 规则 / 状态码)"}
-    G2 -->|"验证通过"| G3{"Gate 3: 数学对数概率与行为停滞门禁"}
-    G2 -->|"验证失败"| RETRY_CHK{"当前重试次数 < max_reflex_retries (默认3次)?"}
+    G2 -->|"校验失败"| RETRY_CHK{"当前重试次数 < max_reflex_retries (默认3次)?"}
     RETRY_CHK -->|"是 (未耗尽)"| RETRY["将确定性校验报错原因作为上下文反思反馈"] --> ACT
     RETRY_CHK -->|"否 (重试耗尽)"| ESC2["强制升级至 Octo-Brain (Gate 2 耗尽)"]
-    G3 -->|"关键字段平均 Logprob 过低 | 行为死循环 | 横向跳数超限"| ESC3["强制升级至 Octo-Brain (Gate 3 触发)"]
+    
+    G2 -->|"验证通过"| G3{"Gate 3: System-1 后置质检与行为停滞门禁"}
+    G3 -->|"System-1 质检否决 | 行为哈希死循环 | 横向跳数超限"| ESC3["强制升级至 Octo-Brain (Gate 3 触发)"]
     G3 -->|"三道门禁全部通过"| RESOLVE["LOCAL_RESOLVE: 将协同产物写入共享数据基质 (sub://) 并继续流转"]
 ```
 
-#### 三道客观漏斗详述：
-1. **Gate 1 — 前置策略与语义边界门禁（0ms 零消耗拦截）：**
-   * 涉及修改生产配置、资金操作、权限变更等标记为 `risk: HIGH` 的任务，直接拦截升级并触发 HITL 审批。
-   * 计算当前任务向量与腕足本地已掌握技能库（含历史进化经验）的余弦相似度，若低于 `0.65`（属于从未见过的陌生领域 OOD），直接交由大脑处理，防止小模型强行编造。
-   * 若输入上下文超过本地小模型的安全窗口上限（`safe_context_limit`，如 6144 Tokens），防止因注意力退化导致漏信息，直接路由给拥有超长窗口的 `Octo-Brain`。
-2. **Gate 2 — 确定性外部验证器与有限次自愈循环（`Act -> Inspect -> Retry`）：**
-   * 利用 **JSON Schema、Pydantic、SQL/代码 AST 解析器、正则业务规则及 MCP 工具返回状态码** 对小模型输出进行客观真值校验。
-   * 校验失败时，宿主运行时将具体报错原因注入上下文，驱动小模型局部自愈重试（最多 3 次）。一旦重试耗尽仍未通过，宿主运行时强制掐断并打包报错现场上报 `Octo-Brain`。
-3. **Gate 3 — 数学令牌概率与行为死循环门禁：**
-   * 在推理接口开启 `logprobs=True`，若关键决策字段的平均对数概率（`avg_logprob`）低于阈值（说明模型在“掷骰子猜词”），强制判定为低置信度并升级。
-   * 对每轮输出和工具调用参数计算 SHA-256 哈希；若连续两轮出现完全重复的无效操作（死循环停滞），或横向接力达到 `max_lateral_hops` 上限，立即触发升级。
+#### 硬件感知自适应决策引擎与防 OOM 显存守卫（`DecisionEngineSPI`）
+由于自回归生成式模型（如通过 Ollama 部署的 `Qwen3.5-4B`）无法在 Ollama 进程内部直接挂载专用的非自回归判别读出头，Octpex 在架构上将 **System-1 突触决策推理（`DecisionEngineSPI`）** 与 **System-2 生成式推理（`SLMInferenceSPI`）** 彻底解耦。启动时，每个 Octo-Arm 运行**硬件探测器（Hardware Probe）**实施严格的**显存预算守卫（VRAM Budget Guard）**——杜绝在无独显笔记本或 GTX 1080（8GB 显存且无原生 FP16 Tensor Core）等旧显卡上发生 OOM 崩溃：
+
+| 硬件分级 | 检测到的硬件配置 Profile | System-2 生成式小模型 (`SLMInferenceSPI`) | System-1 突触决策引擎 (`DecisionEngineSPI`) | OOM 与延迟防护机制 |
+| :--- | :--- | :--- | :--- | :--- |
+| **Tier 0 (CPU 边缘端)** | 无独立显卡，系统 RAM $< 16\text{GB}$ | `qwen3.5:0.8b` / `1.5b` (Q4) | `Laya`（CPU 运行 INT8 ONNX） | 严格限制总内存占用 $< 2.5\text{GB}$；决策延迟 $< 15\text{ms}$。 |
+| **Tier 1 (老旧显卡 / 8GB 显存)** | 8GB VRAM（如 GTX 1080） | `qwen3.5:4b` (Q4_K_M, 8K 上下文) | `Laya`（CPU ONNX）主选；`karpo-decision-2B`（4-bit）备选 | 将 `Laya` 强行固定在系统内存运行（0 显存占用），避免与 `Qwen3.5-4B` 争抢 8GB 显存天花板。 |
+| **Tier 2 (主流显卡 / Apple Silicon)** | 12–16GB 显存或统一内存 | `qwen3.5:4b` (Q4/Q8, 16K 上下文) | `karpo-decision-2B` / `4B` | 开启 32K 超长决策上下文，支持多模态界面截图解析。 |
+| **Tier 3 (企业级 GPU)** | $\ge 24\text{GB}$ 显存（如 A10/A100/4090） | `qwen3.5:9b` (Q8/FP8) | `karpo-decision-4B` / `31B` | 全量多分支并行门禁，启用极高精度的决策索引校准。 |
+
+#### `Laya` 与 `Karpo-Decision` 之间的动态任务感知路由
+1. **多模态或超长上下文（`tokens > 1024` 或包含图像输入）：** 自动路由给 `Karpo-Decision`（原生支持最高 32K 上下文与图形 UI/截图视觉输入）。
+2. **高基数路由或工具选型（`options > 20` 或 `When2Call` 工具判定）：** 路由给 `Karpo-Decision`（支持多达 255 个候选项分类，具备优异的分布外 OOD 泛化能力）。
+3. **高频极速短文本初筛（`tokens <= 1024`）：** 路由给 `Laya`（进程内极速 ONNX/MLX 推理，延迟 $< 15\text{ms}$，零网络与零显存开销）。
+4. **反向选项校准校验（Reverse-Option Calibration Check / FlexDM 范式）：** 当最高概率项落入不确定性区间（`0.50 <= p_max < 0.65`）时，运行时自动发起第二次反转选项顺序的前向传播并对两次概率分布取平均；若反转前后产生严重分歧（一致性校验失败），立即触发 `ESCALATE_TO_BRAIN` 升级。
 
 ---
 
@@ -208,7 +247,16 @@ flowchart TD
 Octpex 构建了一个闭环进化飞轮，将中枢前沿大模型的一次性高昂推理，逐步沉淀为边缘端可无限次免费复用的确定性工具：
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
     ARM_GAP["边缘腕足触发能力缺失或校验耗尽升级"]
@@ -238,14 +286,23 @@ flowchart TD
   "role_name": "telemetry-distiller",
   "capability_tags": ["log-parsing", "stacktrace-dedup", "k8s-diagnostics"],
   "endpoint": "nats://octpex.arm.telemetry-distiller",
+  "hardware_tier": "TIER_1_LEGACY_8GB",
+  "decision_engine_profile": {
+    "primary_engine": "laya-onnx-int8",
+    "secondary_engine": "karpo-decision-2b-4bit",
+    "endpoint": "http://127.0.0.1:8091/v1/systemone",
+    "safe_decision_context": 32768,
+    "vram_budget_mb": 0
+  },
   "slm_profile": {
     "provider": "ollama",
-    "model": "qwen2.5:3b",
-    "safe_context_limit": 6144
+    "model": "qwen3.5:4b",
+    "safe_context_limit": 8192
   },
   "escalation_gates": {
     "min_capability_similarity": 0.65,
-    "min_token_logprob": -0.51,
+    "min_system1_confidence": 0.75,
+    "uncertainty_band_low": 0.50,
     "max_reflex_retries": 3,
     "max_lateral_hops": 3
   },
@@ -261,7 +318,7 @@ flowchart TD
 ```json
 {
   "envelope_id": "env-9f8e7d6c",
-  "trace_id": "tr-20261115-001",
+  "trace_id": "tr-20261117-001",
   "session_id": "sess-8841",
   "plane": "LATERAL",
   "orchestration_pattern": "SEQUENTIAL",
@@ -286,13 +343,14 @@ flowchart TD
 ```json
 {
   "escalation_id": "esc-4412",
-  "trace_id": "tr-20261115-001",
+  "trace_id": "tr-20261117-001",
   "source_arm": "arm-patch-synthesizer-02",
   "triggered_gate": "GATE_2_REFLEX_EXHAUSTED",
   "objective_metrics": {
     "attempts_made": 3,
-    "avg_key_logprob": -0.34,
-    "capability_similarity": 0.84
+    "system1_engine": "karpo-decision-2b-4bit",
+    "system1_confidence": 0.58,
+    "reverse_option_consistent": false
   },
   "last_validation_error": "Schema violation: target replica count exceeds policy limit.",
   "distilled_context_refs": ["sub://sess-8841/distilled-error-summary"],
@@ -330,7 +388,7 @@ flowchart TD
 
 ## 5. 服务提供者接口 (SPI) 与推荐代码目录结构
 
-### 5.1 五大可插拔核心抽象接口
+### 5.1 六大可插拔核心抽象接口
 
 #### 1. 全局编排层接口（`GlobalOrchestratorSPI`）
 ```go
@@ -356,7 +414,37 @@ type ArmRuntimeAdapterSPI interface {
 }
 ```
 
-#### 3. 本地小模型推理接口（`SLMInferenceSPI`）
+#### 3. 突触级 System-1 决策引擎接口（`DecisionEngineSPI`）
+```go
+type DecisionQuestion struct {
+    QID     string   `json:"qid"`
+    QType   string   `json:"qtype"`   // "choice" | "noul" | "score"
+    Prompt  string   `json:"prompt"`
+    Options []string `json:"options"` // 当 QType 为 "choice" 时，最多支持 255 个候选项
+}
+
+type DecisionResult struct {
+    QID           string             `json:"qid"`
+    Probabilities map[string]float64 `json:"probabilities"`
+    TopOption     string             `json:"top_option"`
+    Confidence    float64            `json:"confidence"`
+    EngineUsed    string             `json:"engine_used"` // 例如 "laya-onnx-int8" 或 "karpo-decision-2b"
+    LatencyMs     int64              `json:"latency_ms"`
+}
+
+type DecisionEngineSPI interface {
+    // 在单次非自回归前向传播中评估类型化问题列表（问题列表优先排版）
+    Decide(ctx context.Context, stateText string, questions []DecisionQuestion, images [][]byte) ([]DecisionResult, error)
+
+    // FlexDM 反向选项二次校准校验（当 0.50 <= 置信度 < 0.65 时触发）
+    ReverseOptionCheck(ctx context.Context, stateText string, question DecisionQuestion) (primary *DecisionResult, isConsistent bool, err error)
+
+    // 报告当前检测到的硬件层级与底层激活引擎
+    ActiveProfile() string
+}
+```
+
+#### 4. 本地生成式小模型推理接口（`SLMInferenceSPI`）
 ```go
 type SLMInferenceSPI interface {
     // 生成推理结果并强制提取关键字段对数概率 (Logprobs)
@@ -366,7 +454,7 @@ type SLMInferenceSPI interface {
 }
 ```
 
-#### 4. 共享数据基质接口（`DataSubstrateSPI`）
+#### 5. 共享数据基质接口（`DataSubstrateSPI`）
 ```go
 type DataSubstrateSPI interface {
     // 写入跨节点协同产物，基于 CAS 乐观锁版本号校验
@@ -378,7 +466,7 @@ type DataSubstrateSPI interface {
 }
 ```
 
-#### 5. 工具与沙盒调用接口（`ToolInvocationSPI`）
+#### 6. 工具与沙盒调用接口（`ToolInvocationSPI`）
 ```go
 type ToolInvocationSPI interface {
     // 调用静态或动态注册的 MCP 工具/外部 API
@@ -417,11 +505,14 @@ octpex/
 │   │   └── bus.go                   # 纵向与横向双平面神经总线路由器
 │   ├── arm/
 │   │   ├── ganglion.go              # Octo-Arm 生命周期管理与心跳保活循环
-│   │   ├── reflex.go                # Act -> Inspect -> Retry 局部反思引擎
-│   │   ├── escalation_gate.go       # 三道门禁客观升级漏斗 (策略/验证器/Logprob与死循环检测)
+│   │   ├── synaptic_router.go       # System-1 非自回归决策引擎 (Karpo / Laya)
+│   │   ├── reflex.go                # System-2 Act -> Inspect -> Retry 局部反思自愈引擎
+│   │   ├── escalation_gate.go       # 三级认知阶梯与客观升级漏斗 (策略/验证器/质检批评)
 │   │   └── local_storage.go         # 腕足本地嵌入式向量库、Few-shot 与 KV 暂存区
 │   └── adapters/
-│       ├── slm_ollama.go            # 支持 Logprobs 提取的本地小模型运行时适配器
+│       ├── decision_laya.go         # Laya CPU INT8 进程内 ONNX 极速决策适配器
+│       ├── decision_karpo.go        # Karpo-Decision 2B/4B HTTP REST 决策适配器
+│       ├── slm_ollama.go            # 本地生成式小模型运行时适配器 (Qwen3.5-4B / 1.5B)
 │       ├── tool_mcp.go              # 标准 MCP 协议客户端适配器
 │       └── framework_bridge.go      # Google ADK、LangGraph、AutoGen 与 CrewAI 包装适配器
 └── examples/
@@ -434,13 +525,13 @@ octpex/
 
 ## 6. 核心系统特性与生产级能力架构
 
-Octpex 提供了完备的、生产就绪的仿生分布式智能体神经底座，划分为五大核心能力矩阵：
+Octpex 提供了完备的、生产就绪的仿生分布式智能体神经底座，划分为六大核心能力矩阵：
 
 ### 6.1 单机极速仿生内核（`profile: local`）
 * **标准化协议契约（`pkg/protocol`）**：定义 `NervousEnvelope`、`ArmManifest`、`SubstrateRef` 与 `SecurityContext`，内置不可变 CAS 版本标签与权限单调衰减。
 * **本地双平面神经总线（`pkg/bus`）**：微秒级内存通道调度器，物理分离纵向任务派发与同级横向接力。
 * **零拷贝共享数据基质（`pkg/substrate`）**：纯内存原子 Compare-And-Swap（CAS）数据基座，通过 `sub://{session_id}/{artifact}` 传引不传值，杜绝上下文膨胀。
-* **三道门禁客观升级漏斗（`pkg/gates`）**：硬确定性校验拦截链（Gate 1 前置策略与容量、Gate 2 JSON Schema/AST/退出码、Gate 3 对数概率与跳数上限）。
+* **三级认知阶梯升级漏斗（`pkg/gates`）**：结合 System-1 突触级非自回归读出（`Karpo-Decision` / `Laya`）、System-2 本地生成式小模型（`Qwen3.5-4B` via Ollama）与确定性硬校验器，内置硬件显存守卫。
 
 ### 6.2 根部神经环与分布式集群中枢（`profile: cluster`）
 * **NATS JetStream 双平面传输中枢**：支持水平横向扩展的发布订阅消息总线，具备消费组弹性扩缩容与背压控制机制。
@@ -449,7 +540,7 @@ Octpex 提供了完备的、生产就绪的仿生分布式智能体神经底座�
 * **跨地域多集群联邦路由（`pkg/ring/federation.go`）**：支持跨数据中心对等节点发现、跨地域边界转发探针及多跳跳数熔断拦截。
 
 ### 6.3 异构多框架生态与 Python 智能体网格（`bridge/python`）
-* **全谱系智能分级解耦**：无缝容纳 Level 0（Go 原生 FSM）、Level 1（基于 Ollama 的边缘 SLM）、Level 2（单 Agent 封装）与 Level 3（多角色辩论组）。
+* **全谱系智能分级解耦**：无缝容纳 Level 0（Go 原生 FSM）、Level 1（基于 Karpo/Laya 的非自回归决策读出）、Level 2（基于 Ollama 的本地生成式小模型）与 Level 3（多角色辩论组/Wrapped Agents）。
 * **四大主流框架原生包装器**：提供 **Google ADK**、**LangGraph**、**Microsoft AutoGen** 与 **CrewAI** 官方生产级适配器。
 * **常驻腕足守护进程（`OctoArmDaemon`）**：支持 Python 智能体作为独立容器常驻运行，驱动本地反射自愈并与 Go 内核 HTTP 握手。
 
@@ -460,7 +551,7 @@ Octpex 提供了完备的、生产就绪的仿生分布式智能体神经底座�
 
 ### 6.5 实时可视化看板与 FinOps 财务审计（`pkg/server`, `pkg/telemetry`）
 * **嵌入式异步 Web 实时看板**：基于 Server-Sent Events（SSE: `/api/v1/events`）的交互式单页应用，动态展示神经拓扑与脉冲流。
-* **FinOps 降本与 Token ROI 引擎**：实时审计云端 Token 消耗、边缘小模型 Token 节省量、端到端时延降低幅度及美元成本节约。
+* **FinOps 降本与 Token ROI 引擎**：实时审计云端 Token 消耗、边缘小模型 Token 节省量、System-1 零 Token 闭环消化率、端到端时延降低幅度及美元成本节约。
 * **极致性能压测验证**：实测吞吐超越 **960 万 CAS ops/s**、**810 万总线信封/s** 与 **160 万门禁校验/s**。
 
 ### 6.6 云原生容器编排与企业级 Helm 交付（`deploy/`）

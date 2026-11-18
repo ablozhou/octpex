@@ -86,3 +86,10 @@ func BuildEscalation(env *protocol.NervousEnvelope, gate protocol.EscalationGate
 		TimestampNano:    time.Now().UnixNano(),
 	}
 }
+
+// BuildEscalationWithSystem1 creates an EscalationPayload with non-autoregressive synaptic metrics.
+func BuildEscalationWithSystem1(env *protocol.NervousEnvelope, gate protocol.EscalationGateType, reason string, attempts int, critiques []string, sys1 *protocol.System1Metrics) *protocol.EscalationPayload {
+	payload := BuildEscalation(env, gate, reason, attempts, critiques)
+	payload.System1Metrics = sys1
+	return payload
+}

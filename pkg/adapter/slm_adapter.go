@@ -6,6 +6,7 @@ import (
 	"octpex/pkg/gates"
 	"octpex/pkg/protocol"
 	"octpex/pkg/substrate"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -34,10 +35,12 @@ type SLMInferenceSPI interface {
 
 // SLMGanglionAdapter implements a Level 1 Edge Reflex Arm.
 // It executes the biomimetic reflex loop: Act -> Inspect (Gate 2) -> Retry with Critique -> Gate 3 -> Resolve or Escalate.
+// Incorporates the System-1 Synaptic Engine (Laya/Karpo) for sub-15ms 0-token direct resolution.
 type SLMGanglionAdapter struct {
 	manifest       *protocol.ArmManifest
 	substrate      substrate.DataSubstrateSPI
 	inference      SLMInferenceSPI
+	decisionEngine protocol.DecisionEngineSPI
 	verifier       gates.VerifierFunc
 	activeQueue    int64
 	completedTasks int64
@@ -56,11 +59,31 @@ func NewSLMGanglionAdapter(sub substrate.DataSubstrateSPI, engine SLMInferenceSP
 	}
 }
 
+// SetDecisionEngine registers a non-autoregressive System-1 decision engine.
+func (a *SLMGanglionAdapter) SetDecisionEngine(engine protocol.DecisionEngineSPI) {
+	a.decisionEngine = engine
+}
+
+// NewDecisionEngineFromProfile instantiates the appropriate DecisionEngineSPI based on manifest profile.
+func NewDecisionEngineFromProfile(profile protocol.DecisionEngineProfile) protocol.DecisionEngineSPI {
+	if strings.HasPrefix(profile.PrimaryEngine, "karpo") {
+		endpoint := profile.Endpoint
+		if endpoint == "" {
+			endpoint = "http://127.0.0.1:8091/v1/systemone"
+		}
+		return NewKarpoAdapter(endpoint)
+	}
+	return NewLayaAdapter()
+}
+
 func (a *SLMGanglionAdapter) Init(ctx context.Context, manifest *protocol.ArmManifest) error {
 	if err := manifest.Validate(); err != nil {
 		return fmt.Errorf("slm_adapter: invalid manifest: %w", err)
 	}
 	a.manifest = manifest
+	if a.decisionEngine == nil && manifest.DecisionEngineProfile.PrimaryEngine != "" && manifest.DecisionEngineProfile.PrimaryEngine != "none" {
+		a.decisionEngine = NewDecisionEngineFromProfile(manifest.DecisionEngineProfile)
+	}
 	return nil
 }
 
@@ -68,18 +91,39 @@ func (a *SLMGanglionAdapter) ExecuteStep(ctx context.Context, env *protocol.Nerv
 	atomic.AddInt64(&a.activeQueue, 1)
 	defer atomic.AddInt64(&a.activeQueue, -1)
 
-	// 1. Gate 1: Pre-Flight Check (Capacity & Policy)
+	// 1. Gate 1: Cognitive Ladder Tier-1 Synaptic Pre-Flight & Discriminative Evaluation
 	promptTokens := 256 // baseline estimate
-	passed, reason := gates.PreFlightCheck(a.manifest, env, 0.90, promptTokens)
-	if !passed {
+	decisionQ := extractDecisionQuestion(env)
+
+	ladderRes := gates.EvaluateTier1Synaptic(ctx, a.manifest, env, a.decisionEngine, decisionQ, 0.90, promptTokens)
+	if ladderRes.Resolution == gates.ResolutionEscalatedToBrain {
 		atomic.AddInt64(&a.escalatedTasks, 1)
 		return &protocol.StepResult{
 			Status:        "ESCALATED",
-			OutputMessage: fmt.Sprintf("gate 1 preflight escalation: %s", reason),
+			OutputMessage: fmt.Sprintf("gate 1 escalation: %s", ladderRes.Reason),
+			Metadata: map[string]any{
+				"escalation": ladderRes.Escalation,
+			},
 		}, nil
 	}
 
-	// 2. Fetch input data from Shared Data Substrate if present
+	// Direct resolution via System-1 Synaptic Engine (0 Token, <15ms)
+	if ladderRes.Resolution == gates.ResolutionSystem1Direct && ladderRes.DecisionResult != nil {
+		atomic.AddInt64(&a.completedTasks, 1)
+		return &protocol.StepResult{
+			Status:        "SUCCESS",
+			OutputMessage: ladderRes.DecisionResult.TopOption,
+			Metadata: map[string]any{
+				"resolution_tier": "TIER_1_SYNAPTIC",
+				"tokens_consumed": 0,
+				"engine_used":     ladderRes.DecisionResult.EngineUsed,
+				"confidence":      ladderRes.DecisionResult.Confidence,
+				"latency_ms":      ladderRes.DecisionResult.LatencyMs,
+			},
+		}, nil
+	}
+
+	// 2. Fetch input data from Shared Data Substrate if present (Tier-2 SLM generation)
 	var inputPayload string
 	if len(env.SubstrateRefs) > 0 {
 		data, _, err := a.substrate.GetArtifact(ctx, env.SubstrateRefs[0].URI)
@@ -134,13 +178,13 @@ func (a *SLMGanglionAdapter) ExecuteStep(ctx context.Context, env *protocol.Nerv
 		}
 	}
 
-	// 4. Gate 3: Mathematical Logprob & Behavioral Check
-	g3Passed, g3Reason := gates.BehavioralCheck(a.manifest, env, finalResp.AvgLogprob)
+	// 4. Gate 3: Mathematical Logprob & System-1 Post-Critic Quality Check
+	g3Passed, g3Reason, sys1Critic := gates.EvaluateTier3Critic(ctx, a.manifest, env, a.decisionEngine, finalResp.Content, finalResp.AvgLogprob)
 	if !g3Passed {
 		atomic.AddInt64(&a.escalatedTasks, 1)
 		return &protocol.StepResult{
 			Status:        "ESCALATED",
-			OutputMessage: fmt.Sprintf("gate 3 behavioral escalation: %s", g3Reason),
+			OutputMessage: fmt.Sprintf("gate 3 critic escalation: %s", g3Reason),
 		}, nil
 	}
 
@@ -153,6 +197,15 @@ func (a *SLMGanglionAdapter) ExecuteStep(ctx context.Context, env *protocol.Nerv
 	}
 
 	atomic.AddInt64(&a.completedTasks, 1)
+	resMeta := map[string]any{
+		"resolution_tier": "TIER_2_GENERATIVE_SLM",
+		"prompt_tokens":   finalResp.PromptTokens,
+		"output_tokens":   finalResp.OutputTokens,
+	}
+	if sys1Critic != nil {
+		resMeta["system1_critic"] = sys1Critic
+	}
+
 	return &protocol.StepResult{
 		Status:        "SUCCESS",
 		OutputMessage: "SLM reflex loop passed all 3 gates",
@@ -164,7 +217,58 @@ func (a *SLMGanglionAdapter) ExecuteStep(ctx context.Context, env *protocol.Nerv
 				ByteSize:    int64(len(outData)),
 			},
 		},
+		Metadata: resMeta,
 	}, nil
+}
+
+func extractDecisionQuestion(env *protocol.NervousEnvelope) *protocol.DecisionQuestion {
+	if env.Parameters == nil {
+		return nil
+	}
+	if dqVal, ok := env.Parameters["decision_question"]; ok {
+		if dq, ok := dqVal.(*protocol.DecisionQuestion); ok {
+			return dq
+		}
+		if dqMap, ok := dqVal.(map[string]any); ok {
+			return parseDecisionQuestionFromMap(dqMap)
+		}
+	}
+	if opts, ok := env.Parameters["options"].([]string); ok && len(opts) > 0 {
+		prompt, _ := env.Parameters["prompt"].(string)
+		if prompt == "" {
+			prompt = env.TargetCapability
+		}
+		return &protocol.DecisionQuestion{
+			QID:     env.EnvelopeID + "-dq",
+			QType:   "choice",
+			Prompt:  prompt,
+			Options: opts,
+		}
+	}
+	return nil
+}
+
+func parseDecisionQuestionFromMap(m map[string]any) *protocol.DecisionQuestion {
+	q := &protocol.DecisionQuestion{}
+	if qid, ok := m["qid"].(string); ok {
+		q.QID = qid
+	}
+	if qtype, ok := m["qtype"].(string); ok {
+		q.QType = qtype
+	}
+	if prompt, ok := m["prompt"].(string); ok {
+		q.Prompt = prompt
+	}
+	if opts, ok := m["options"].([]string); ok {
+		q.Options = opts
+	} else if optsI, ok := m["options"].([]any); ok {
+		for _, o := range optsI {
+			if s, ok := o.(string); ok {
+				q.Options = append(q.Options, s)
+			}
+		}
+	}
+	return q
 }
 
 func (a *SLMGanglionAdapter) Telemetry(ctx context.Context) (*protocol.ArmTelemetry, error) {
