@@ -56,7 +56,7 @@ Octpex 在 `deploy/` 目录下提供了生产级开箱即用的集群交付配�
 
   双节点五容器验收可单独运行 `python cluster/test_workflow.py`，自动检查跨节点派发、Redis 产物和 B 节点离线。
 - **Kubernetes 原生编排清单 (All-in-One 包含依赖一键拉起)**：
-  详见 [docs/k8s_multi_agent_guide_cn.md](file:///c:/Users/abloz/Documents/code/octpex/docs/k8s_multi_agent_guide_cn.md)：
+  详见 [k8s_multi_agent_guide_cn.md](k8s_multi_agent_guide_cn.md)：
   ```bash
   # 一键部署包含 Redis/NATS/etcd 与 Entry+Worker 多 Agent 的完整拓扑
   kubectl apply -f deploy/k8s/all-in-one.yaml

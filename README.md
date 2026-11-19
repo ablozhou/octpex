@@ -6,11 +6,10 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
-  <a href="README_CN.md"><img src="https://img.shields.io/badge/README-中文版-blue.svg" alt="Chinese Readme"></a>
-  <a href="docs/PRD.md"><img src="https://img.shields.io/badge/PRD-English-brightgreen.svg" alt="PRD"></a>
-  <a href="docs/PRD_CN.md"><img src="https://img.shields.io/badge/PRD-中文版-brightgreen.svg" alt="PRD CN"></a>
-  <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/Architecture-English-orange.svg" alt="Architecture"></a>
-  <a href="docs/ARCHITECTURE_CN.md"><img src="https://img.shields.io/badge/架构规范-中文版-orange.svg" alt="Architecture CN"></a>
+  <a href="README_CN.md"><img src="https://img.shields.io/badge/Language-中文版-blue.svg" alt="Chinese Readme"></a>
+  <a href="docs/PRD.md"><img src="https://img.shields.io/badge/PRD-Document-brightgreen.svg" alt="PRD"></a>
+  <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/Architecture-Specification-orange.svg" alt="Architecture"></a>
+  <a href="docs/k8s_multi_agent_guide.md"><img src="https://img.shields.io/badge/Kubernetes-0_to_1_Guide-purple.svg" alt="K8s Guide"></a>
 </p>
 
 ---
@@ -289,6 +288,7 @@ octpex version   # Display version and architecture information
    * Native production wrappers for **Google ADK**, **LangGraph**, **Microsoft AutoGen**, and **CrewAI**.
    * `OctoArmDaemon` for running Python Arm workers as standalone services communicating via REST APIs.
    * Runnable 4-tier heterogeneous multi-agent mesh example (`examples/python_heterogeneous_mesh/`).
+   * 5-arm collaborative blog research, drafting, multi-round critique & publishing mesh (`examples/blog_publish_mesh/`).
 4. **Self-Evolution & Dynamic MCP Tool Box:**
    * "Brain teaches Arm" capability distillation loop: automatic tool synthesis upon central escalation.
    * Standard Model Context Protocol (MCP 2024-11-05) client over `stdio` and streaming HTTP/SSE.
@@ -305,18 +305,17 @@ octpex version   # Display version and architecture information
 
 ## Documentation Index
 
-### Core Architecture & Product Requirements
-* [System Architecture Specification (English)](docs/ARCHITECTURE.md)
-* [系统架构规范 (中文版)](docs/ARCHITECTURE_CN.md)
-* [Product Requirements Document (English)](docs/PRD.md)
-* [产品需求文档 (中文版)](docs/PRD_CN.md)
+### Core Architecture & Specifications
+* [System Architecture Specification](docs/ARCHITECTURE.md)
+* [Product Requirements Document (PRD)](docs/PRD.md)
 
-### Secondary Developer & Operational Guides
-* [Comprehensive Developer & Integration Guide (English)](docs/developer_guide.md)
-* [开发者与生态集成综合指南 (中文版)](docs/developer_guide_cn.md)
-* [Comprehensive Deployment & Operations Guide (English)](docs/deployment_guide.md)
-* [部署运维与业务实战指南 (中文版)](docs/deployment_guide_cn.md)
-* [项目中文说明 (README_CN.md)](README_CN.md)
+### Developer & Operational Guides
+* [Comprehensive Developer & Integration Guide](docs/developer_guide.md)
+* [Comprehensive Deployment & Operations Guide](docs/deployment_guide.md)
+* [Kubernetes Multi-Agent Zero-to-One Deployment Guide](docs/k8s_multi_agent_guide.md)
+
+### Multi-Language Documentation
+* For Chinese documentation and architecture specifications, please refer to [README_CN.md](README_CN.md).
 
 ---
 

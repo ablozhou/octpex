@@ -1,6 +1,6 @@
 # Step-by-Step Guide: Deploying and Verifying Octpex Multi-Agent Cluster on Kubernetes
 
-This guide walks through deploying and verifying a **distributed Octpex multi-agent cluster** from scratch using **Docker Desktop's built-in Kubernetes** (or any standard K8s cluster such as Minikube, Kind, or managed cloud K8s).
+This guide assumes you already have an accessible Kubernetes environment ready (such as Docker Desktop built-in K8s, Minikube, Kind, K3s, or any standard cloud-managed cluster). This walkthrough will guide you through deploying a complete **Octpex Biomimetic Multi-Agent Distributed System** from scratch, validating end-to-end cross-node scheduling, Shared Data Substrate persistence, fault self-healing, and real-time dashboard observability.
 
 ---
 
@@ -8,31 +8,45 @@ This guide walks through deploying and verifying a **distributed Octpex multi-ag
 
 In this deployment, Kubernetes orchestrates five services inside the `octpex-system` namespace:
 
-```
-                            [ User Requests / Web UI ]
-                                         │
-                                         ▼
-                            ┌────────────────────────┐
-                            │  octpex-entry (Cortex) │
-                            │ (Dispatch, worker=false│
-                            └──────────┬─────────────┘
-                                       │
-           ┌───────────────────────────┼───────────────────────────┐
-           │ (NATS Dual-Plane Bus)     │ (etcd Capability Registry)│ (Redis CAS Substrate)
-           ▼                           ▼                           ▼
-  ┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
-  │  nats-cluster   │         │  etcd-cluster   │         │  redis-cluster  │
-  │   (JetStream)   │         │  (5s Lease TTL) │         │ (Lua CAS Leases)│
-  └────────┬────────┘         └────────┬────────┘         └────────┬────────┘
-           │                           │                           │
-           └───────────────────────────┼───────────────────────────┘
-                                       │
-                   ┌───────────────────┴───────────────────┐
-                   ▼                                       ▼
-       ┌───────────────────────┐               ┌───────────────────────┐
-       │  octpex-worker Pod 1  │               │  octpex-worker Pod 2  │
-       │ (distill-telemetry Arm)│              │ (distill-telemetry Arm)│
-       └───────────────────────┘               └───────────────────────┘
+```mermaid
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
+flowchart TD
+    classDef default fill:none;
+
+    CLIENT(["Client Requests / Web Dashboard"]) --> ENTRY["octpex-entry (Scheduler / Gateway)<br/>(worker=false, port=8080)"]
+
+    subgraph INFRA["Cluster Infrastructure Mesh"]
+        direction LR
+        NATS["nats-cluster (JetStream)<br/>Dual-Plane Transport: 4222"]
+        ETCD["etcd-cluster (Registry)<br/>5s Lease Heartbeat: 2379"]
+        REDIS["redis-cluster (Substrate)<br/>CAS Leases & sub://: 6379"]
+    end
+
+    ENTRY <==>|"NATS Dual-Plane Bus"| NATS
+    ENTRY <==>|"Dynamic Discovery"| ETCD
+    ENTRY <==>|"CAS Versioning"| REDIS
+
+    subgraph WORKERS["Octo-Arm Workers (Scalable Edge Pods)"]
+        direction LR
+        W1["octpex-worker Pod 1<br/>(distill-telemetry Arm)"]
+        W2["octpex-worker Pod 2<br/>(distill-telemetry Arm)"]
+    end
+
+    NATS ==>|"Queue Group Dispatch"| WORKERS
+    ETCD -.->|"Heartbeat Sync"| WORKERS
+    WORKERS ==>|"Store sub:// Pointers"| REDIS
+
+    style INFRA fill:none,stroke-width:1.5px;
+    style WORKERS fill:none,stroke-dasharray: 4 4;
 ```
 
 1. **Infrastructure Tier**:
@@ -47,13 +61,14 @@ In this deployment, Kubernetes orchestrates five services inside the `octpex-sys
 
 ## 2. Prerequisites & Image Build
 
-### 2.1 Enable Kubernetes in Docker Desktop
-- Open Docker Desktop Settings -> **Kubernetes** -> Check **Enable Kubernetes** -> Click **Apply & restart**.
-- Verify:
-  ```bash
-  kubectl cluster-info
-  kubectl get nodes
-  ```
+### 2.1 Verify Kubernetes Cluster Readiness
+Ensure your terminal is connected to an active Kubernetes cluster using your preferred environment (Docker Desktop, Minikube, Kind, K3s, or cloud provider):
+
+```bash
+kubectl cluster-info
+kubectl get nodes
+```
+Confirm node status reports `Ready` and your `kubectl` context has permission to create namespaces and workloads.
 
 ### 2.2 Build Octpex Kernel Image
 Build the container image embedding the production cluster driver:
@@ -62,13 +77,13 @@ Build the container image embedding the production cluster driver:
 docker build -t octpex/kernel:0.5.0 -f deploy/docker/Dockerfile .
 ```
 
-*Note: Docker Desktop Kubernetes natively shares local Docker images.*
+*Note: With local setups like Docker Desktop or Minikube, nodes natively share local Docker images. For remote clusters, tag and push to your registry.*
 
 ---
 
 ## 3. One-Click Cluster Deployment
 
-Deploy the complete manifest [deploy/k8s/all-in-one.yaml](file:///c:/Users/abloz/Documents/code/octpex/deploy/k8s/all-in-one.yaml):
+Deploy the complete manifest [deploy/k8s/all-in-one.yaml](../deploy/k8s/all-in-one.yaml):
 
 ```bash
 kubectl apply -f deploy/k8s/all-in-one.yaml
@@ -185,9 +200,187 @@ View the live bionic topology diagram, Server-Sent Events stream, and FinOps cos
 
 ---
 
-## 5. Teardown
+## 5. Advanced Scenario A: Business App Log Harvesting & Three-Stage Closed Loop (AIOps Edge Autonomy)
+
+In microservice clusters, downstream dependency fluctuations can trigger thousands of identical error stack traces within seconds. Forwarding all raw logs to cloud LLMs exhausts token budgets and introduces unacceptable operational latency.
+
+Octpex addresses this through a biomimetic **"Edge Autonomic Triage + Cloud Strategic Cortex"** three-stage closed loop:
+
+```mermaid
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
+flowchart TD
+    classDef default fill:none;
+
+    APP["Microservice Container (Order / Payment)"] -->|"Writes to app.log"| VOL[("Kubernetes Shared Volume")]
+
+    subgraph STAGE1["Stage 1: Edge Autonomic Triage (Sidecar + Octo-Arm Ganglia)"]
+        direction TB
+        SIDECAR["Harvester Sidecar (10s Window Batching)"]
+        ARM["Octo-Arm Ganglia (Local SLM / FSM, 0 Cloud Tokens)<br/>• Stream deduplication: reduces 90%+ redundant error spam<br/>• Root-cause classification: writes snapshot to sub://<br/>• Local reflex: resolves transient jitters on-site"]
+        SIDECAR --> ARM
+    end
+
+    VOL --> SIDECAR
+
+    subgraph STAGE2["Stage 2: Objective Deterministic Gate Gating"]
+        direction TB
+        GATE{"Gate 1 / Gate 2 Hard Checks"}
+        PASS["Known Transient Jitter -> Local 0-Token Resolve"]
+        ESC["Critical Anomaly / Retries Exceeded -> Escalate"]
+        GATE -->|"Pass"| PASS
+        GATE -->|"Escalate Triggered"| ESC
+    end
+
+    ARM --> GATE
+
+    subgraph STAGE3["Stage 3: Octo-Brain Strategic Arbitration (Frontier LLM)"]
+        direction TB
+        BRAIN["Octo-Brain Strategic Cortex<br/>(Reviews structured incident context without raw logs)"]
+        ACT_AUTO["Auto-Recovery: Rollout restart stateless Pod"]
+        ACT_HITL["Safety Alarm: Escalate to On-Call SRE"]
+        ACT_DISTILL["Skill Distill: Synthesize dynamic watchdog script"]
+        BRAIN --> ACT_AUTO
+        BRAIN --> ACT_HITL
+        BRAIN --> ACT_DISTILL
+    end
+
+    ESC ==>|"Pass-by-reference: sub:// pointer + evidence"| BRAIN
+
+    style STAGE1 fill:none,stroke-width:1.5px;
+    style STAGE2 fill:none,stroke-width:1.5px;
+    style STAGE3 fill:none,stroke-width:1.5px;
+```
+
+### Option 1: Run Three-Stage Simulation Locally (Direct Output)
+
+Run the simulation script [examples/aiops_log_drain/main.py](../examples/aiops_log_drain/main.py) to inspect the two core scenarios:
 
 ```bash
+python examples/aiops_log_drain/main.py
+```
+
+**Console Output Highlights:**
+- **Case 1 (Transient Jitter)**: Connection timeout burst -> Arm deduplicates 33% -> Stores to `sub://.../incident-01.json` -> Gate 1 passes -> Executes `refresh_db_pool()` (**12ms, 0 Cloud Tokens**).
+- **Case 2 (Fatal Deadlock)**: Deadlock detected -> Arm packages incident -> Gate 1 escalates -> Octo-Brain orders `rollout restart deploy/payment-gateway`, alerts SRE, and synthesizes `deadlock_preempt.sh`.
+
+### Option 2: Deploy Shared-Volume Log Governance on Kubernetes
+
+Apply the manifest [examples/aiops_log_drain/k8s-deployment.yaml](../examples/aiops_log_drain/k8s-deployment.yaml):
+
+```bash
+kubectl apply -f examples/aiops_log_drain/k8s-deployment.yaml
+```
+
+The pod mounts a shared volume `/var/log/mock-app` between two containers:
+- `log-producer`: Simulates high-frequency application traffic with duplicate ERROR stack traces.
+- `octpex-log-sidecar`: Batches logs, encapsulates them into Octpex nervous envelopes, and dispatches to edge workers for deduplication.
+
+**Inspect raw logs and sidecar dispatch:**
+```bash
+# View raw logs from the mock application
+kubectl logs -n octpex-system deploy/mock-app-log-generator -c log-producer --tail=10
+
+# View sidecar dispatch events to octpex-service
+kubectl logs -n octpex-system deploy/mock-app-log-generator -c octpex-log-sidecar --tail=10
+```
+
+**Verify distilled incident records in Redis CAS:**
+```bash
+# Check auto-generated substrate records in Redis
+kubectl exec -n octpex-system deploy/redis-cluster -- redis-cli KEYS "octpex:sub:sub://sess-k8s-autolog/*"
+
+# Read deduplicated output (duplicate errors are reduced to canonical entries)
+kubectl exec -n octpex-system deploy/redis-cluster -- redis-cli HGETALL "octpex:sub:sub://sess-k8s-autolog/distilled/env-trace-auto-xxx"
+```
+Refresh `http://localhost:8080` to view the live SSE pulse stream and FinOps 0-token savings metrics.
+
+---
+
+## 6. Advanced Scenario B: 5-Agent Collaborative Blog Publishing Mesh (Multi-Round Review Loop & Shared Volume)
+
+This scenario demonstrates an end-to-end multi-agent content generation pipeline. Given a technical topic (e.g., `"Kubernetes Biomimetic Multi-Agent Fabric on Octpex"`), 5 specialized agent arms collaborate over the Octpex distributed fabric:
+
+```mermaid
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
+flowchart TD
+    classDef default fill:none;
+
+    TOPIC(["Given Technical Topic"]) --> ARM1["Arm 1: Researcher Arm<br/>Extracts core architectural pillars -> sub://.../research.json"]
+    ARM1 --> ARM2["Arm 2: Planner Arm<br/>Structures 5-chapter markdown outline -> sub://.../outline.json"]
+    ARM2 --> ARM3["Arm 3: Writer Arm<br/>Drafts complete markdown article -> sub://.../draft.md"]
+
+    ARM3 --> ARM4{"Arm 4: Critic Gate<br/>Gate 2/3 Objective Verification"}
+
+    ARM4 -->|"Critique Veto (Actionable feedback)"| ARM3
+    ARM4 -->|"Signed Off (98/100 score)"| ARM5["Arm 5: Publisher Arm<br/>Injects YAML FrontMatter & outputs to /data/blog"]
+
+    ARM5 --> OUTPUT[("Shared Volume /data/blog/<br/>blog_xxx.md")]
+
+    style ARM1 fill:none,stroke-width:1.5px;
+    style ARM2 fill:none,stroke-width:1.5px;
+    style ARM3 fill:none,stroke-width:1.5px;
+    style ARM5 fill:none,stroke-width:1.5px;
+```
+
+### Option 1: Run Inside Kubernetes via Batch Job with Shared Volume
+Deploy the Job manifest [examples/blog_publish_mesh/k8s-job.yaml](../examples/blog_publish_mesh/k8s-job.yaml):
+
+```bash
+kubectl apply -f examples/blog_publish_mesh/k8s-job.yaml
+```
+
+Follow the multi-agent deliberation and critique revision loop in real time:
+```bash
+kubectl logs -n octpex-system job/octpex-blog-publishing-job -f
+```
+
+**Key Execution Highlights:**
+1. **Round 1**: Writer creates the initial draft. Critic runs Gate 2 validation, notes missing depth on Redis CAS update semantics, assigns 78/100, and vetoes the draft with actionable feedback.
+2. **Round 2**: Writer incorporates critique, adding deep-dive sections on Redis CAS atomic leases and NATS JetStream dual-plane buses. Critic re-evaluates and awards 98/100 approval.
+3. **Publisher**: Publisher Arm injects YAML FrontMatter (metadata, tags, review score) and saves the completed article into the shared volume `/data/blog/`.
+
+### Option 2: Run via Local Python SDK Directly into Host Directory
+To test directly on your local developer machine with file output into a host directory, run [examples/blog_publish_mesh/main.py](../examples/blog_publish_mesh/main.py):
+
+```bash
+python examples/blog_publish_mesh/main.py \
+  --topic "Kubernetes Biomimetic Multi-Agent Fabric on Octpex" \
+  --output "./output/blog" \
+  --rounds 3
+```
+
+Check the published markdown post in `output/blog/`:
+```bash
+cat output/blog/blog_*.md
+```
+
+---
+
+## 7. Teardown
+
+Clean up all core and scenario resources:
+
+```bash
+kubectl delete -f examples/aiops_log_drain/k8s-deployment.yaml --ignore-not-found
+kubectl delete -f examples/blog_publish_mesh/k8s-job.yaml --ignore-not-found
 kubectl delete -f deploy/k8s/all-in-one.yaml
 ```
 Deletes the `octpex-system` namespace and all attached resources cleanly.

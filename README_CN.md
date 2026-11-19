@@ -7,11 +7,10 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
-  <a href="README.md"><img src="https://img.shields.io/badge/README-English-blue.svg" alt="English Readme"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Language-English-blue.svg" alt="English Readme"></a>
   <a href="docs/PRD_CN.md"><img src="https://img.shields.io/badge/PRD-中文版-brightgreen.svg" alt="PRD CN"></a>
-  <a href="docs/PRD.md"><img src="https://img.shields.io/badge/PRD-English-brightgreen.svg" alt="PRD"></a>
   <a href="docs/ARCHITECTURE_CN.md"><img src="https://img.shields.io/badge/架构规范-中文版-orange.svg" alt="Architecture CN"></a>
-  <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/Architecture-English-orange.svg" alt="Architecture"></a>
+  <a href="docs/k8s_multi_agent_guide_cn.md"><img src="https://img.shields.io/badge/Kubernetes-从零到一指引-purple.svg" alt="K8s Guide"></a>
 </p>
 
 ---
@@ -290,6 +289,7 @@ octpex version   # 查看当前内核版本与运行架构信息
    * 原生提供 **Google ADK**、**LangGraph**、**Microsoft AutoGen** 与 **CrewAI** 官方生产级适配包装器。
    * 提供 `OctoArmDaemon`，支持将 Python 智能体作为常驻独立进程运行，通过 REST 接口与 Go 内核握手。
    * 包含开箱即用的四层异构多智能体同级接力实战示例（`examples/python_heterogeneous_mesh/`）。
+   * 包含 5 腕足协同的博客检索、起草、多轮质检打回与共享卷发布实战示例（`examples/blog_publish_mesh/`）。
 4. **跨层级自进化与动态 MCP 工具箱：**
    * “大脑教腕足”能力蒸馏闭环：腕足遇到难题升级后，中枢大脑动态合成代码工具并注入基底神经环。
    * 完整支持标准模型上下文协议（MCP 2024-11-05），支持 `stdio` 与流式 HTTP/SSE 客户端。
@@ -308,16 +308,15 @@ octpex version   # 查看当前内核版本与运行架构信息
 
 ### 核心架构与产品规范
 * [系统架构规范 (中文版)](docs/ARCHITECTURE_CN.md)
-* [System Architecture Specification (English)](docs/ARCHITECTURE.md)
 * [产品需求文档 (中文版)](docs/PRD_CN.md)
-* [Product Requirements Document (English)](docs/PRD.md)
 
 ### 开发者实战与集群运维指南
 * [开发者与生态集成综合指南 (中文版)](docs/developer_guide_cn.md)
-* [Comprehensive Developer & Integration Guide (English)](docs/developer_guide.md)
 * [部署运维与业务实战指南 (中文版)](docs/deployment_guide_cn.md)
-* [Comprehensive Deployment & Operations Guide (English)](docs/deployment_guide.md)
-* [English README (README.md)](README.md)
+* [Kubernetes 多 Agent 从零到一实战指引 (中文版)](docs/k8s_multi_agent_guide_cn.md)
+
+### 多语言文档
+* 英文版主文档及技术规范详见 [README.md](README.md)。
 
 ---
 

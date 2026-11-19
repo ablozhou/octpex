@@ -56,7 +56,7 @@ Octpex provides production-ready deployment configurations in `deploy/`:
 
   Run `python cluster/test_workflow.py` for isolated five-container acceptance covering cross-node dispatch, Redis readback and worker loss.
 - **Kubernetes Raw Manifests (All-in-One Multi-Agent Cluster)**:
-  See [docs/k8s_multi_agent_guide.md](file:///c:/Users/abloz/Documents/code/octpex/docs/k8s_multi_agent_guide.md) for full walkthrough:
+  See [k8s_multi_agent_guide.md](k8s_multi_agent_guide.md) for full walkthrough:
   ```bash
   # Deploy Redis/NATS/etcd dependencies + Entry Cortex + 2 Edge Workers in one shot
   kubectl apply -f deploy/k8s/all-in-one.yaml
