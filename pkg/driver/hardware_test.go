@@ -10,8 +10,8 @@ func TestEvaluateHardwareTier_Tier0_CPUEdge(t *testing.T) {
 	if p.Tier != protocol.HardwareTier0CPUEdge {
 		t.Fatalf("expected Tier 0, got %s", p.Tier)
 	}
-	if p.System1Engine != "laya-onnx-int8" {
-		t.Fatalf("expected laya-onnx-int8, got %s", p.System1Engine)
+	if p.System1Engine != "laya-keyword" {
+		t.Fatalf("expected laya-keyword, got %s", p.System1Engine)
 	}
 	if p.System2Model != "qwen3.5:1.5b" {
 		t.Fatalf("expected qwen3.5:1.5b, got %s", p.System2Model)
@@ -28,8 +28,8 @@ func TestEvaluateHardwareTier_Tier1_Legacy8GB(t *testing.T) {
 		t.Fatalf("expected Tier 1, got %s", p.Tier)
 	}
 	// Crucial rule: Laya must be pinned to CPU (0 VRAM) to leave all 8GB for Qwen3.5-4B
-	if p.System1Engine != "laya-onnx-int8" {
-		t.Fatalf("expected laya-onnx-int8 for Tier 1 CPU pinning, got %s", p.System1Engine)
+	if p.System1Engine != "laya-keyword" {
+		t.Fatalf("expected laya-keyword for Tier 1 CPU pinning, got %s", p.System1Engine)
 	}
 	if p.System2Model != "qwen3.5:4b" {
 		t.Fatalf("expected qwen3.5:4b, got %s", p.System2Model)

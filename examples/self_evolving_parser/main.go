@@ -10,7 +10,7 @@ import (
 	"octpex/pkg/sandbox"
 	"octpex/pkg/substrate"
 	"octpex/pkg/tool"
-	"strings"
+	"os"
 	"time"
 )
 
@@ -26,8 +26,13 @@ func main() {
 	nervousBus := bus.NewLocalNervousBus(256)
 	registry := ring.NewCapabilityRegistry(15 * time.Second)
 	dynamicMCP := tool.NewDynamicMCPBox()
-	abloexBox := sandbox.NewAbloExSandbox(sandbox.DefaultSandboxQuota())
+	image := os.Getenv("OCTPEX_SANDBOX_IMAGE")
+	if image == "" {
+		image = "python:3.12-alpine"
+	}
+	abloexBox := sandbox.NewDockerSandbox(sandbox.DefaultSandboxQuota(), image)
 	dynamicMCP.SetSecurityScanner(abloexBox)
+	dynamicMCP.SetScriptRunner(abloexBox)
 
 	// 2. Initialize Octo-Brain
 	octoBrain := brain.NewOctoBrain(nil)
@@ -84,7 +89,7 @@ func main() {
 			Status:        "ESCALATED",
 			OutputMessage: "Schema mismatch: Unrecognized protocol header OCTO-V2",
 			Metadata: map[string]any{
-				"raw_sample":     rawInput,
+				"raw_sample":      rawInput,
 				"escalation_gate": "Gate 2 Schema Verification Failure",
 			},
 		}, nil
@@ -116,19 +121,17 @@ func main() {
 
 	// Central Brain Arbitrates Escalation
 	fmt.Println("\n[Step 2] Central Brain receives escalation. Activating Self-Evolution Loop...")
-	fmt.Println("  -> [Brain] Synthesizing dedicated Go/Python tool for protocol 'OCTO-V2'...")
+	fmt.Println("  -> [Brain] Loading example Python tool for protocol 'OCTO-V2'...")
 
 	// Synthesize tool code
-	synthesizedCode := `
-package main
-func ParseOctoV2(raw string) map[string]string {
-    // Extracted parser logic for OCTO-V2 header
-    return map[string]string{"protocol": "OCTO-V2", "level": "SYS_ALERT", "code": "0x7F", "status": "PARSED"}
-}
+	synthesizedCode := `import json, sys
+raw = json.load(sys.stdin)["raw"]
+protocol, alert, code, *_ = raw.split("|")
+print(json.dumps({"protocol": protocol, "alert_type": alert, "error_code": code.removeprefix("ERR_CODE:")}))
 `
-	fmt.Println("  -> [Brain] Code synthesized. Submitting to AbloEx Pre-Admission Security Scanner...")
+	fmt.Println("  -> [Brain] Example script ready. Submitting to AbloEx Pre-Admission Security Scanner...")
 
-	// Pass through AbloEx Static AST Pre-Admission Scan
+	// Pass through AbloEx pre-admission pattern scan
 	err := dynamicMCP.RegisterDynamicScript(
 		"parse_octo_v2",
 		"Synthesized parser for OCTO-V2 proprietary protocol logs",
@@ -139,24 +142,9 @@ func ParseOctoV2(raw string) map[string]string {
 	}
 
 	// Register invocation handler for the newly admitted tool
-	dynamicMCP.RegisterTool(&tool.ToolSchema{
-		Name:        "parse_octo_v2",
-		Description: "Parses OCTO-V2 logs",
-		IsDynamic:   true,
-	}, func(ctx context.Context, params map[string]any) (*tool.ToolResult, error) {
-		raw := params["raw"].(string)
-		parts := strings.Split(raw, "|")
-		out := fmt.Sprintf(`{"protocol":"%s","alert_type":"%s","error_code":"%s","status":"SUCCESS_PARSED"}`,
-			parts[0], parts[1], parts[2])
-		return &tool.ToolResult{
-			ToolName: "parse_octo_v2",
-			Success:  true,
-			Output:   out,
-		}, nil
-	})
 
-	fmt.Println("  -> [AbloEx] Static AST Scan: CLEAN (0 wiper calls, memory <= 256MB quota).")
-	fmt.Println("  -> [Brain] Tool 'parse_octo_v2' officially admitted and broadcasted to Basal Nerve Ring!")
+	fmt.Println("  -> [AbloEx] Script passed the pre-admission pattern scan.")
+	fmt.Println("  -> [Brain] Tool 'parse_octo_v2' registered in the local tool box.")
 
 	// Brain retries task with newly synthesized tool
 	res1Retry, err := nervousBus.Publish(ctx, env1)

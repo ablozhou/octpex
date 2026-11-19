@@ -1,4 +1,4 @@
-﻿# Octpex
+# Octpex
 
 <p align="center">
   <strong>Biomimetic Distributed Cognitive Topology & Self-Evolving Edge-Cloud Agent Fabric</strong>
@@ -67,7 +67,16 @@ Octpex strictly mirrors this biomimetic principle:
 ## System Architecture & Topology
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
 
@@ -148,7 +157,16 @@ flowchart TD
 > **Engineering Principle:** Never trust an edge SLM (0.5B–3B) to evaluate its own certainty. All escalation boundaries are strictly enforced by host runtime code through objective gates.
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
     START["Sub-Task Arrives at Octo-Arm"] --> G1{"Gate 1: Pre-Flight Policy & Distance Check"}
@@ -168,7 +186,16 @@ flowchart TD
 ## Cross-Tier Self-Evolution: Brain-to-Arm & Dynamic MCP
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
     ARM_GAP["Octo-Arm Escalates Capability Gap or Validation Failure"]

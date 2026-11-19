@@ -1,4 +1,4 @@
-﻿# Octpex 开发者与生态集成综合指南
+# Octpex 开发者与生态集成综合指南
 
 本文档为二次开发者、社区贡献者与框架集成商提供在 Octpex 仿生智能体分布式基质上构建、封装与扩展 Agent 的全景指导。
 
@@ -13,7 +13,16 @@
 - **Level 3（封装多 Agent 团队）**：将 AutoGen 辩论组或 CrewAI 团队封装为单一高内聚专家节点。
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
     
@@ -121,7 +130,16 @@ result = adapter.execute_envelope(incoming_envelope)
 #### 3.4.1 架构职责与工作流程
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
 

@@ -4,7 +4,7 @@
 **核心定位：** 仿生分布式认知拓扑与自我进化的端云协同智能体底座（Biomimetic Distributed Cognitive Topology & Self-Evolving Edge-Cloud Agent Fabric）  
 **文档版本：** 2.2.0  
 **开源协议：** Apache License 2.0  
-**当前状态：** 定稿 / 可进入研发实施阶段  
+**文档状态：** 生产级正式技术规范  
 
 ---
 
@@ -281,11 +281,12 @@ Octpex 在分布式节点拓扑层面原生支持四大经典编排范式：
 * 不重复实现操作系统级或虚拟化容器隔离沙盒（通过 `ToolInvocationSPI` 委托给专业安全底座如 AbloEx 执行）。
 * v1.0 暂不开发面向终端消费者的重型图形化拖拽编排画布（聚焦于高性能标准化 SPI 接口、实时 Web 动态看板与结构化 REST API）。
 
-### 8.2 生产级已交付与验证特性全景
-* **单机极速仿生内核（`profile: local`）：** 纯内存基底神经环、Ollama 本地小模型适配器、Dual-Engine System-1 决策适配器（`Karpo-Decision` + `Laya`）及硬件显存守卫、三级认知阶梯客观升级漏斗及 FinOps Token 节省统计器。
-* **企业级分布式集群中枢（`profile: cluster`）：** NATS JetStream 消费组双平面总线、Redis/Valkey 原子 CAS 共享数据基质（`sub://`）、etcd 5秒租约心跳注册表与背压任务窃取调度。
-* **跨层级自进化与动态 MCP 工具箱：** “大脑教腕足”动态工具合成流水线、完整标准 MCP 客户端（`stdio` 与流式 HTTP/SSE），以及 AbloEx 静态 AST 准入安全拦截。
-* **异构多框架生态与 Python SDK（`octpex-sdk`）：** 提供 Google ADK、LangGraph、Microsoft AutoGen、CrewAI 官方原生适配器，以及常驻智能体守护进程 `OctoArmDaemon`。
-* **实时动态看板与微秒级吞吐：** 内置 Server-Sent Events（SSE: `/api/v1/events`）实时事件推流的异步 Web 动态看板，实测验证吞吐超越 960 万 CAS ops/s 与 810 万消息/s。
-* **跨地域多集群联邦路由：** 跨数据中心对等节点发现、跨集群边界跳数与权限衰减及网络探活机制。
-* **云原生生产交付包：** 多阶段极简 Docker 镜像、一键式 Docker Compose 依赖全栈，以及企业级 Helm v3 生产包（`deploy/helm/octpex`），支持 HPA 水平弹性伸缩。
+### 8.2 核心特性与生产支持矩阵
+
+| 分层 / 子系统 | 核心能力 | 部署拓扑 | 核心协议与接口 |
+|---|---|---|---|
+| Octo-Arm（边缘/工作腕足） | 传感器感知、日志流式去重、快路径工具调度执行 | 工作节点（Docker / K8s Pod） | Go 原生引擎 / Python SDK 桥接 |
+| Octo-Brain（认知中枢） | 语义仲裁决策、冲突裁决、宏观规划与模型路由 | 入口节点 / 单机守护进程 | HTTP / gRPC REST APIs |
+| Sucker-Ring（协同环） | 瞬态共享内存、CAS 内容寻址产物存储、集群事件总线 | 集群协同网络 | Redis 7.x、NATS JetStream、etcd v3 |
+| 生产编排支持 | 多 Agent 真实集群自动化调度、就绪探针、服务发现 | Kubernetes All-in-One 与 Compose | `deploy/k8s/all-in-one.yaml`、Docker |
+| 扩展与沙箱隔离 | 可插拔工具执行 SPI、容器化运行时隔离、MCP 动态接入 | 工作负载沙箱环境 | `ToolInvocationSPI`、Docker CLI、MCP JSON-RPC |

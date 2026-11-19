@@ -3,6 +3,8 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +13,7 @@ import (
 	"octpex/pkg/ring"
 	"octpex/pkg/substrate"
 	"octpex/pkg/telemetry"
+	"strings"
 	"testing"
 	"time"
 )
@@ -116,5 +119,32 @@ func TestHTTPServer_Endpoints(t *testing.T) {
 	}
 	if !bytes.Contains(wEvents.Body.Bytes(), []byte("TEST_PULSE")) {
 		t.Fatalf("expected TEST_PULSE in event stream body, got: %s", wEvents.Body.String())
+	}
+}
+
+func TestFederationPreservesScope(t *testing.T) {
+	b := bus.NewLocalNervousBus(1)
+	defer b.Close()
+	var observed protocol.SecurityContext
+	b.Subscribe("check", func(_ context.Context, env *protocol.NervousEnvelope) (*protocol.StepResult, error) {
+		observed = env.Security
+		return &protocol.StepResult{Status: "SUCCESS"}, nil
+	})
+	srv := NewHTTPServer(ServerConfig{}, b, nil, nil, nil)
+	for _, trusted := range []bool{false, true} {
+		body := `{"plane":"LATERAL","source_node":"a","hop_count":1,"target_capability":"check","security":{"max_allowed_hops":2,"allow_mutation":false,"allowed_capabilities":["check"]}}`
+		r := httptest.NewRequest("POST", "/api/v1/dispatch", strings.NewReader(body))
+		r.Header.Set("X-Octpex-Federation-Source", "peer.test")
+		if trusted {
+			r.TLS = &tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{DNSNames: []string{"peer.test"}}}}}
+		}
+		w := httptest.NewRecorder()
+		srv.ServeHTTP(w, r)
+		if !trusted && w.Code != 403 {
+			t.Fatal(w.Code)
+		}
+		if trusted && (w.Code != 200 || observed.AllowMutation || observed.MaxAllowedHops != 1) {
+			t.Fatalf("%d %+v", w.Code, observed)
+		}
 	}
 }

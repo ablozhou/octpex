@@ -3,6 +3,9 @@ package sandbox
 import (
 	"context"
 	"octpex/pkg/protocol"
+	"octpex/pkg/tool"
+	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -17,11 +20,8 @@ def calculate_metrics(data):
 `
 	sec := protocol.DefaultSecurityContext("sess-1")
 	res, err := sandbox.ExecuteDynamicScript(ctx, "calc-metrics", safeCode, nil, &sec, false)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !res.Success {
-		t.Errorf("expected success in AbloEx sandbox")
+	if err != tool.ErrNoScriptRunner || res != nil {
+		t.Fatalf("unexpected result without runner: %+v, %v", res, err)
 	}
 }
 
@@ -55,11 +55,8 @@ func TestAbloExTokenAttenuationEnforcement(t *testing.T) {
 	safeMutationCode := `UPDATE config SET memory = 2048`
 
 	res, err := sandbox.ExecuteDynamicScript(ctx, "update-config", safeMutationCode, nil, &sec, true)
-	if err != nil {
-		t.Fatalf("expected initial mutation permitted, got: %v", err)
-	}
-	if !res.Success {
-		t.Error("expected mutation success")
+	if err != tool.ErrNoScriptRunner || res != nil {
+		t.Fatalf("admitted tool requires a runner: %v", err)
 	}
 
 	// 2. Envelope hops laterally across tentacles: privileges monotonically attenuate!
@@ -89,5 +86,27 @@ func TestAbloExTimeoutQuota(t *testing.T) {
 	_, err := sandbox.ExecuteDynamicScript(ctx, "timeout-tool", "echo 'hello'", nil, &sec, false)
 	if err != ErrSandboxTimeout {
 		t.Fatalf("expected ErrSandboxTimeout, got: %v", err)
+	}
+}
+
+func TestDockerSandboxIntegration(t *testing.T) {
+	image := os.Getenv("OCTPEX_TEST_SANDBOX_IMAGE")
+	if image == "" {
+		t.Skip("set OCTPEX_TEST_SANDBOX_IMAGE to a locally available Python image")
+	}
+	runner := NewDockerSandbox(DefaultSandboxQuota(), image)
+	box := tool.NewDynamicMCPBox()
+	box.SetSecurityScanner(runner)
+	box.SetScriptRunner(runner)
+	err := box.RegisterDynamicScript("echo-data", "Return input", `import json,sys; print(json.load(sys.stdin)["name"])`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := box.InvokeTool(context.Background(), "echo-data", map[string]any{"name": "sample"})
+	if err != nil || !res.Success || strings.TrimSpace(res.Output) != "sample" {
+		t.Fatalf("%+v %v", res, err)
+	}
+	if _, err := runner.Run(context.Background(), "fail", "raise ValueError('failed')", nil); err == nil {
+		t.Fatal("nonzero exit reported success")
 	}
 }

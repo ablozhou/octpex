@@ -45,7 +45,7 @@ func checkDestructivePolicy(params map[string]any) string {
 // VerifierCheck evaluates Gate 2: Deterministic syntax, schema, and exit codes.
 type VerifierFunc func(ctx context.Context, output []byte) error
 
-// JSONSchemaVerifier validates that output is valid JSON.
+// JSONSchemaVerifier checks JSON syntax for arms without a field contract.
 func JSONSchemaVerifier(ctx context.Context, output []byte) error {
 	var js json.RawMessage
 	if err := json.Unmarshal(output, &js); err != nil {
@@ -92,4 +92,37 @@ func BuildEscalationWithSystem1(env *protocol.NervousEnvelope, gate protocol.Esc
 	payload := BuildEscalation(env, gate, reason, attempts, critiques)
 	payload.System1Metrics = sys1
 	return payload
+}
+
+// VerifyObjectFields enforces the configured top-level JSON field types.
+func VerifyObjectFields(output []byte, fields map[string]string) error {
+	var obj map[string]any
+	if err := json.Unmarshal(output, &obj); err != nil {
+		return err
+	}
+	for key, want := range fields {
+		value, ok := obj[key]
+		if !ok {
+			return fmt.Errorf("required output field %q missing", key)
+		}
+		var got string
+		switch value.(type) {
+		case string:
+			got = "string"
+		case float64:
+			got = "number"
+		case bool:
+			got = "boolean"
+		case []any:
+			got = "array"
+		case map[string]any:
+			got = "object"
+		case nil:
+			got = "null"
+		}
+		if got != want {
+			return fmt.Errorf("output field %q: expected %s, got %s", key, want, got)
+		}
+	}
+	return nil
 }

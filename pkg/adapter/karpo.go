@@ -76,8 +76,7 @@ func (k *KarpoAdapter) Decide(ctx context.Context, stateText string, questions [
 
 	resp, err := k.httpClient.Do(httpReq)
 	if err != nil {
-		// Fallback to local mock if endpoint unavailable in dev / test
-		return k.mockDecide(stateText, questions, start)
+		return nil, fmt.Errorf("karpo decision request: %w", err)
 	}
 	defer resp.Body.Close()
 

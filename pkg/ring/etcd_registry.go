@@ -24,14 +24,14 @@ type ETCDClient interface {
 
 // ETCDCapabilityRegistry implements dynamic arm registration and discovery backed by etcd.
 type ETCDCapabilityRegistry struct {
-	client     ETCDClient
-	prefix     string
-	leaseTTL   int64
-	mu         sync.RWMutex
-	cache      map[string]*protocol.ArmManifest
-	leases     map[string]int64
-	stopCh     chan struct{}
-	closeOnce  sync.Once
+	client    ETCDClient
+	prefix    string
+	leaseTTL  int64
+	mu        sync.RWMutex
+	cache     map[string]*protocol.ArmManifest
+	leases    map[string]int64
+	stopCh    chan struct{}
+	closeOnce sync.Once
 }
 
 // NewETCDCapabilityRegistry creates a new etcd-backed dynamic registry.
@@ -40,19 +40,22 @@ func NewETCDCapabilityRegistry(client ETCDClient, leaseTTLSeconds int64) (*ETCDC
 		leaseTTLSeconds = 5
 	}
 	r := &ETCDCapabilityRegistry{
-		client:    client,
-		prefix:    "/octpex/ring/arms/",
-		leaseTTL:  leaseTTLSeconds,
-		cache:     make(map[string]*protocol.ArmManifest),
-		leases:    make(map[string]int64),
-		stopCh:    make(chan struct{}),
+		client:   client,
+		prefix:   "/octpex/ring/arms/",
+		leaseTTL: leaseTTLSeconds,
+		cache:    make(map[string]*protocol.ArmManifest),
+		leases:   make(map[string]int64),
+		stopCh:   make(chan struct{}),
 	}
 
 	// 1. Initial sync
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	items, err := client.GetPrefix(ctx, r.prefix)
-	if err == nil {
+	if err != nil {
+		return nil, fmt.Errorf("read etcd registry: %w", err)
+	}
+	{
 		for _, v := range items {
 			var m protocol.ArmManifest
 			if err := json.Unmarshal([]byte(v), &m); err == nil {
@@ -115,7 +118,7 @@ func (r *ETCDCapabilityRegistry) RegisterArm(ctx context.Context, manifest *prot
 }
 
 func (r *ETCDCapabilityRegistry) keepAliveLoop(armID string, leaseID int64) {
-	ticker := time.NewTicker(time.Duration(r.leaseTTL/2) * time.Second)
+	ticker := time.NewTicker(time.Duration(r.leaseTTL) * time.Second / 2)
 	defer ticker.Stop()
 
 	for {
@@ -205,11 +208,11 @@ func (r *ETCDCapabilityRegistry) Close() error {
 
 // MockETCDClient implements an in-memory etcd v3 client for test verification.
 type MockETCDClient struct {
-	mu        sync.RWMutex
-	store     map[string]string
-	leases    map[int64]time.Time
-	leaseSeq  int64
-	watchers  []func(eventType, key, val string)
+	mu       sync.RWMutex
+	store    map[string]string
+	leases   map[int64]time.Time
+	leaseSeq int64
+	watchers []func(eventType, key, val string)
 }
 
 // NewMockETCDClient creates an in-memory mock etcd client.

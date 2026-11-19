@@ -45,13 +45,13 @@ func EvaluateHardwareTier(sysRAMMB, vramMB int, gpuName string) HardwareProfile 
 	} else if vramMB >= 6000 {
 		// Tier 1 (e.g. GTX 1080 8GB): Pins Laya to CPU RAM (0 VRAM) to prevent OOM competition with Qwen3.5-4B
 		profile.Tier = protocol.HardwareTier1Legacy8GB
-		profile.System1Engine = "laya-onnx-int8"
+		profile.System1Engine = "laya-keyword"
 		profile.System2Model = "qwen3.5:4b"
 		profile.VRAMBudgetMB = 0
 	} else {
 		// Tier 0 (CPU Edge): Constrained RAM, lightweight 1.5B/0.8B generative model + CPU ONNX Laya
 		profile.Tier = protocol.HardwareTier0CPUEdge
-		profile.System1Engine = "laya-onnx-int8"
+		profile.System1Engine = "laya-keyword"
 		profile.System2Model = "qwen3.5:1.5b"
 		profile.VRAMBudgetMB = 0
 	}

@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	ErrDangerousCodeDetected    = errors.New("abloex: dangerous pattern detected by static AST scanner")
-	ErrPrivilegeAttenuated      = errors.New("abloex: action rejected, mutation privilege attenuated across lateral hops")
-	ErrUnauthorizedCapability   = errors.New("abloex: capability not permitted in caller security context")
-	ErrSandboxTimeout           = errors.New("abloex: execution exceeded sandbox timeout quota")
+	ErrDangerousCodeDetected  = errors.New("abloex: dangerous pattern detected by static pattern scanner")
+	ErrPrivilegeAttenuated    = errors.New("abloex: action rejected, mutation privilege attenuated across lateral hops")
+	ErrUnauthorizedCapability = errors.New("abloex: capability not permitted in caller security context")
+	ErrSandboxTimeout         = errors.New("abloex: execution exceeded sandbox timeout quota")
 )
 
 // SandboxQuota defines resource limits for sandboxed execution.
@@ -39,7 +39,8 @@ func DefaultSandboxQuota() SandboxQuota {
 // AbloExSandbox is the sister security engine providing hardware/process isolation
 // and zero-trust token attenuation enforcement for Octpex.
 type AbloExSandbox struct {
-	quota          SandboxQuota
+	runner             tool.ScriptRunner
+	quota              SandboxQuota
 	prohibitedPatterns []*regexp.Regexp
 }
 
@@ -60,7 +61,7 @@ func NewAbloExSandbox(quota SandboxQuota) *AbloExSandbox {
 	}
 }
 
-// ScanCode performs static AST & instruction security inspection prior to admission into the Dynamic MCP Box.
+// ScanCode performs static pattern & instruction security inspection prior to admission into the Dynamic MCP Box.
 func (s *AbloExSandbox) ScanCode(code string) error {
 	for _, pattern := range s.prohibitedPatterns {
 		if pattern.MatchString(code) {
@@ -123,25 +124,28 @@ func (s *AbloExSandbox) ExecuteDynamicScript(ctx context.Context, toolName, code
 	execCtx, cancel := context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 
-	start := time.Now()
-
-	// 4. Isolated Execution in Sandbox environment
-	select {
-	case <-execCtx.Done():
-		return &tool.ToolResult{
-			ToolName:   toolName,
-			Success:    false,
-			Error:      ErrSandboxTimeout.Error(),
-			DurationMs: time.Since(start).Milliseconds(),
-		}, ErrSandboxTimeout
-	default:
-		// Simulated micro-sandbox execution (Wasm/Container jail)
-		duration := time.Since(start).Milliseconds()
-		return &tool.ToolResult{
-			ToolName:   toolName,
-			Success:    true,
-			Output:     fmt.Sprintf("AbloEx Sandbox executed '%s' (memory_quota: %dMB, read_only_fs: %v)", toolName, s.quota.MaxMemoryMB, s.quota.ReadOnlyRootFS),
-			DurationMs: duration,
-		}, nil
+	if execCtx.Err() != nil {
+		return nil, ErrSandboxTimeout
 	}
+	if s.runner == nil {
+		return nil, tool.ErrNoScriptRunner
+	}
+	res, err := s.runner.Run(execCtx, toolName, code, params)
+	if execCtx.Err() != nil {
+		return nil, ErrSandboxTimeout
+	}
+	return res, err
+}
+
+// Run executes a registered tool with read-only capability scope.
+func (s *AbloExSandbox) Run(ctx context.Context, name, code string, params map[string]any) (*tool.ToolResult, error) {
+	sec := &protocol.SecurityContext{AllowedCapabilities: []string{name}}
+	return s.ExecuteDynamicScript(ctx, name, code, params, sec, false)
+}
+
+// NewDockerSandbox runs generated code in a disposable, restricted container.
+func NewDockerSandbox(quota SandboxQuota, image string) *AbloExSandbox {
+	s := NewAbloExSandbox(quota)
+	s.runner = &dockerRunner{quota: quota, image: image}
+	return s
 }

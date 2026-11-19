@@ -1,13 +1,15 @@
 # Stage 1: Build the Octpex biomimetic daemon binary
-FROM golang:1.24-alpine AS builder
+FROM golang:1.26.5-alpine AS builder
 
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY cmd/ cmd/
 COPY pkg/ pkg/
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/octpex cmd/octpex/main.go
+COPY internal/ internal/
+COPY cluster/ cluster/
+WORKDIR /src/cluster
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=mod -ldflags="-s -w" -o /bin/octpex .
 
 # Stage 2: Production runtime image
 FROM alpine:3.20

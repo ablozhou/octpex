@@ -33,4 +33,5 @@ data:
     sandbox:
       provider: "{{ .Values.config.sandbox.provider }}"
       memory_limit_mb: {{ .Values.config.sandbox.memoryLimitMB }}
+      timeout_ms: {{ mul .Values.config.sandbox.timeoutSeconds 1000 }}
       network_isolated: {{ .Values.config.sandbox.networkIsolated }}

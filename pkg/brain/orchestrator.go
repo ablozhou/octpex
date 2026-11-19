@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"octpex/pkg/protocol"
+	"strings"
 	"sync"
 	"time"
 )
@@ -47,13 +48,13 @@ type HITLRequest struct {
 
 // ArbitrationDecision is the strategic resolution returned by Octo-Brain when an Arm escalates.
 type ArbitrationDecision struct {
-	DecisionID          string                     `json:"decision_id"`
-	Decision            DecisionType               `json:"decision"`
-	Reason              string                     `json:"reason"`
-	SynthesizedToolCode string                     `json:"synthesized_tool_code,omitempty"`
-	DynamicToolName     string                     `json:"dynamic_tool_name,omitempty"`
-	NextEnvelope        *protocol.NervousEnvelope  `json:"next_envelope,omitempty"`
-	HITLRequest         *HITLRequest               `json:"hitl_request,omitempty"`
+	DecisionID          string                    `json:"decision_id"`
+	Decision            DecisionType              `json:"decision"`
+	Reason              string                    `json:"reason"`
+	SynthesizedToolCode string                    `json:"synthesized_tool_code,omitempty"`
+	DynamicToolName     string                    `json:"dynamic_tool_name,omitempty"`
+	NextEnvelope        *protocol.NervousEnvelope `json:"next_envelope,omitempty"`
+	HITLRequest         *HITLRequest              `json:"hitl_request,omitempty"`
 }
 
 // GlobalOrchestratorSPI defines the high-level reasoning and arbitration interface of Octo-Brain.
@@ -119,7 +120,7 @@ func (b *OctoBrain) Arbitrate(ctx context.Context, escalation *protocol.Escalati
 	defer b.mu.Unlock()
 
 	// 1. If Gate 1 High Risk Mutation was triggered, immediately suspend for HITL approval
-	if escalation.TriggeredGate == protocol.Gate1PreFlightPolicy && escalation.FailureReason == "prohibited destructive system command" {
+	if escalation.TriggeredGate == protocol.Gate1PreFlightPolicy && strings.TrimPrefix(escalation.FailureReason, "gate 1: high risk mutation blocked: ") == "prohibited destructive system command" {
 		reqID := fmt.Sprintf("hitl-%d", time.Now().UnixNano())
 		hitlReq := &HITLRequest{
 			RequestID:   reqID,

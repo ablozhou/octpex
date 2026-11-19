@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -92,7 +93,10 @@ func (r *RedisSubstrate) PutArtifact(ctx context.Context, uri string, expectedVe
 
 	res, err := r.client.Eval(ctx, CASLuaScript, []string{key}, expectedVersion, string(data), ttlMs)
 	if err != nil {
-		return 0, fmt.Errorf("%w: %v", ErrCASConflict, err)
+		if strings.Contains(err.Error(), "CAS_CONFLICT") || err == ErrCASConflict {
+			return 0, fmt.Errorf("%w: %v", ErrCASConflict, err)
+		}
+		return 0, err
 	}
 
 	resStr, ok := res.(string)
@@ -153,17 +157,13 @@ func (r *RedisSubstrate) AcquireLease(ctx context.Context, uri string, workerID 
 	return token, nil
 }
 
+const releaseScript = `if redis.call('GET',KEYS[1]) == ARGV[1] then return redis.call('DEL',KEYS[1]) end return 0`
+
 // ReleaseLease explicitly releases the lease token.
 func (r *RedisSubstrate) ReleaseLease(ctx context.Context, uri string, leaseToken string) error {
 	lockKey := r.formatLockKey(uri)
-	val, err := r.client.Get(ctx, lockKey)
-	if err != nil {
-		return nil // Key may have expired
-	}
-	if val == leaseToken {
-		_, _ = r.client.Del(ctx, lockKey)
-	}
-	return nil
+	_, err := r.client.Eval(ctx, releaseScript, []string{lockKey}, leaseToken)
+	return err
 }
 
 // DeleteArtifact purges an artifact from Redis.
@@ -193,6 +193,12 @@ func (m *MockRedisCommander) Eval(ctx context.Context, script string, keys []str
 	defer m.mu.Unlock()
 
 	key := keys[0]
+	if script == releaseScript {
+		if m.keys[keys[0]] == args[0] {
+			delete(m.keys, keys[0])
+		}
+		return int64(0), nil
+	}
 	if script == CASLuaScript {
 		expectedVer := args[0].(int64)
 		newData := args[1].(string)

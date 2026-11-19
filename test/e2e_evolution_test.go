@@ -7,7 +7,7 @@ import (
 	"octpex/pkg/protocol"
 	"octpex/pkg/ring"
 	"octpex/pkg/sandbox"
-	"octpex/pkg/substrate"
+
 	"octpex/pkg/tool"
 	"testing"
 	"time"
@@ -17,7 +17,7 @@ func TestSelfEvolutionAndDynamicMCPDistillationLoop(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. Initialize Substrate, Dynamic MCP Box with AbloEx Sandbox, Capability Registry, and Octo-Brain
-	sub := substrate.NewInMemorySubstrate()
+
 	mcpBox := tool.NewDynamicMCPBox()
 	abloex := sandbox.NewAbloExSandbox(sandbox.DefaultSandboxQuota())
 	mcpBox.SetSecurityScanner(abloex)
@@ -85,24 +85,9 @@ func TestSelfEvolutionAndDynamicMCPDistillationLoop(t *testing.T) {
 		t.Error("expected tool to be marked as dynamic")
 	}
 
-	// 6. Future Task 2 Arrives: Resolved 100% locally via the newly distilled Dynamic Tool!
-	toolResult, err := mcpBox.InvokeTool(ctx, decision.DynamicToolName, map[string]any{"dry_run": true})
-	if err != nil {
-		t.Fatalf("invoke distilled tool failed: %v", err)
-	}
-	if !toolResult.Success {
-		t.Errorf("expected dynamic tool execution success")
+	// With no isolated runtime, the tool cannot report a completed migration.
+	if _, err := mcpBox.InvokeTool(ctx, decision.DynamicToolName, nil); err != tool.ErrNoScriptRunner {
+		t.Fatalf("unconfigured runner: %v", err)
 	}
 
-	// Write successful execution result to Shared Data Substrate
-	outURI := "sub://sess-101/migration-complete"
-	v1, err := sub.PutArtifact(ctx, outURI, 0, []byte(toolResult.Output), time.Minute)
-	if err != nil {
-		t.Fatalf("put artifact failed: %v", err)
-	}
-	if v1 != 1 {
-		t.Errorf("expected version 1, got: %d", v1)
-	}
-
-	t.Logf("Self-Evolution Loop passed: Capability gap escalated to Brain -> Dynamic MCP tool synthesized -> Task resolved locally without cloud LLM!")
 }

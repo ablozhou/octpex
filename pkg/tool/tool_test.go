@@ -48,12 +48,8 @@ func TestDynamicMCPBoxRegistrationAndInvocation(t *testing.T) {
 	}
 
 	// 5. Invoke dynamic tool
-	dynRes, err := box.InvokeTool(ctx, "dynamic-memory-patcher", nil)
-	if err != nil {
-		t.Fatalf("invoke dynamic tool failed: %v", err)
-	}
-	if !dynRes.Success {
-		t.Error("expected dynamic tool execution success")
+	if _, err := box.InvokeTool(ctx, "dynamic-memory-patcher", nil); err != ErrNoScriptRunner {
+		t.Fatalf("missing runner: %v", err)
 	}
 
 	// 6. Invoke unknown tool

@@ -108,7 +108,7 @@ func (a *SLMGanglionAdapter) ExecuteStep(ctx context.Context, env *protocol.Nerv
 	}
 
 	// Direct resolution via System-1 Synaptic Engine (0 Token, <15ms)
-	if ladderRes.Resolution == gates.ResolutionSystem1Direct && ladderRes.DecisionResult != nil {
+	if ladderRes.Resolution == gates.ResolutionSystem1Direct && ladderRes.DecisionResult != nil && len(a.manifest.RequiredOutputFields) == 0 {
 		atomic.AddInt64(&a.completedTasks, 1)
 		return &protocol.StepResult{
 			Status:        "SUCCESS",
@@ -159,6 +159,9 @@ func (a *SLMGanglionAdapter) ExecuteStep(ctx context.Context, env *protocol.Nerv
 
 		// Gate 2: Deterministic Verifier (e.g. JSON schema / AST syntax)
 		vErr := a.verifier(ctx, []byte(resp.Content))
+		if vErr == nil && len(a.manifest.RequiredOutputFields) > 0 {
+			vErr = gates.VerifyObjectFields([]byte(resp.Content), a.manifest.RequiredOutputFields)
+		}
 		if vErr == nil {
 			// Gate 2 Passed! Proceed to Gate 3
 			break

@@ -8,18 +8,19 @@ import (
 	"fmt"
 	"net/http"
 	"octpex/pkg/protocol"
+	"slices"
 	"sync"
 	"time"
 )
 
 // ClusterPeer represents a remote regional cluster participating in the federation.
 type ClusterPeer struct {
-	RegionID     string    `json:"region_id"`     // e.g. "us-west-2", "eu-central-1", "edge-site-01"
-	Endpoint     string    `json:"endpoint"`      // e.g. "http://octpex-eu:8080"
-	Capabilities []string  `json:"capabilities"`  // Capability tags available in this remote cluster
-	LatencyMs    float64   `json:"latency_ms"`    // Estimated roundtrip latency
-	Healthy      bool      `json:"healthy"`       // Peer health status
-	LastProbe    time.Time `json:"last_probe"`    // Timestamp of last health probe
+	RegionID     string    `json:"region_id"`    // e.g. "us-west-2", "eu-central-1", "edge-site-01"
+	Endpoint     string    `json:"endpoint"`     // e.g. "http://octpex-eu:8080"
+	Capabilities []string  `json:"capabilities"` // Capability tags available in this remote cluster
+	LatencyMs    float64   `json:"latency_ms"`   // Estimated roundtrip latency
+	Healthy      bool      `json:"healthy"`      // Peer health status
+	LastProbe    time.Time `json:"last_probe"`   // Timestamp of last health probe
 }
 
 // FederationBridge coordinates cross-region routing and lateral envelope handoffs across clusters.
@@ -91,6 +92,9 @@ func (fb *FederationBridge) ForwardEnvelope(ctx context.Context, env *protocol.N
 		return nil, fmt.Errorf("hop limit reached; envelope cannot traverse cluster boundary (max_allowed_hops=%d)", env.Security.MaxAllowedHops)
 	}
 
+	if len(env.Security.AllowedCapabilities) > 0 && !slices.Contains(env.Security.AllowedCapabilities, env.TargetCapability) {
+		return nil, fmt.Errorf("federation target outside allowed capabilities")
+	}
 	forwardEnv := *env
 	forwardEnv.HopCount++
 	forwardEnv.Plane = protocol.PlaneLateral

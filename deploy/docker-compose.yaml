@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # 1. Octpex Biomimetic Nervous System Daemon
   octpex-kernel:
@@ -15,16 +13,14 @@ services:
       - nats
       - redis
       - etcd
-    environment:
-      - OCTPEX_PROFILE=cluster
-      - NATS_URL=nats://nats:4222
-      - REDIS_ENDPOINT=redis:6379
-      - ETCD_ENDPOINTS=etcd:2379
 
   # 2. NATS JetStream Dual-Plane Bus
   nats:
     image: nats:2.10-alpine
     container_name: octpex-nats
+    networks:
+      default:
+        aliases: [nats-cluster]
     restart: unless-stopped
     command: ["-js", "-m", "8222"]
     ports:
@@ -35,6 +31,9 @@ services:
   redis:
     image: redis:7.2-alpine
     container_name: octpex-redis
+    networks:
+      default:
+        aliases: [redis-cluster]
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -43,6 +42,9 @@ services:
   etcd:
     image: quay.io/coreos/etcd:v3.5.15
     container_name: octpex-etcd
+    networks:
+      default:
+        aliases: [etcd-cluster]
     restart: unless-stopped
     environment:
       - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379

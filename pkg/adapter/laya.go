@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// LayaAdapter implements DecisionEngineSPI using an in-process CPU INT8 classifier.
+// LayaAdapter implements DecisionEngineSPI using an deterministic keyword classifier.
 // It uses 0 VRAM and delivers sub-15ms non-autoregressive decision readouts.
 type LayaAdapter struct {
 	profileName string
@@ -16,7 +16,7 @@ type LayaAdapter struct {
 // NewLayaAdapter creates an instance of the Laya CPU decision engine.
 func NewLayaAdapter() *LayaAdapter {
 	return &LayaAdapter{
-		profileName: "laya-onnx-int8 (CPU Edge, 0 VRAM)",
+		profileName: "laya-keyword (CPU Edge, 0 VRAM)",
 	}
 }
 
@@ -30,7 +30,7 @@ func (l *LayaAdapter) Decide(ctx context.Context, stateText string, questions []
 	for _, q := range questions {
 		res := DecisionResult{
 			QID:           q.QID,
-			EngineUsed:    "laya-onnx-int8",
+			EngineUsed:    "laya-keyword",
 			Probabilities: make(map[string]float64),
 		}
 

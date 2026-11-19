@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
-	"octpex/pkg/bus"
 	"octpex/pkg/protocol"
-	"octpex/pkg/ring"
+	"slices"
+
 	"octpex/pkg/substrate"
 	"octpex/pkg/telemetry"
 	"sync"
@@ -16,7 +18,8 @@ import (
 
 // ServerConfig defines network parameters for the HTTP dashboard.
 type ServerConfig struct {
-	Port int `json:"port"` // Default: 8080
+	TLS  *tls.Config `json:"-"`
+	Port int         `json:"port"` // Default: 8080
 }
 
 // SystemEvent represents a real-time event broadcast over SSE.
@@ -28,11 +31,18 @@ type SystemEvent struct {
 	Details   string    `json:"details"`
 }
 
+type Publisher interface {
+	Publish(context.Context, *protocol.NervousEnvelope) (*protocol.StepResult, error)
+}
+type Topology interface {
+	ListHealthyArms() []*protocol.ArmManifest
+}
+
 // HTTPServer provides a REST API and embedded biomimetic web dashboard.
 type HTTPServer struct {
 	config      ServerConfig
-	bus         *bus.LocalNervousBus
-	registry    *ring.CapabilityRegistry
+	bus         Publisher
+	registry    Topology
 	substrate   substrate.DataSubstrateSPI
 	finops      *telemetry.FinOpsCollector
 	httpSrv     *http.Server
@@ -44,8 +54,8 @@ type HTTPServer struct {
 // NewHTTPServer creates an initialized HTTP server.
 func NewHTTPServer(
 	cfg ServerConfig,
-	bus *bus.LocalNervousBus,
-	registry *ring.CapabilityRegistry,
+	bus Publisher,
+	registry Topology,
 	sub substrate.DataSubstrateSPI,
 	finops *telemetry.FinOpsCollector,
 ) *HTTPServer {
@@ -74,6 +84,11 @@ func NewHTTPServer(
 	}
 
 	return s
+}
+
+// ServeHTTP exposes the same routes to an embedding server or an in-process caller.
+func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.httpSrv.Handler.ServeHTTP(w, r)
 }
 
 // BroadcastEvent publishes an event to all connected SSE clients.
@@ -136,9 +151,14 @@ func (s *HTTPServer) handleEvents(w http.ResponseWriter, r *http.Request) {
 
 // Start begins listening on the configured HTTP port in a background goroutine.
 func (s *HTTPServer) Start() error {
-	go func() {
-		_ = s.httpSrv.ListenAndServe()
-	}()
+	ln, err := net.Listen("tcp", s.httpSrv.Addr)
+	if err != nil {
+		return err
+	}
+	if s.config.TLS != nil {
+		ln = tls.NewListener(ln, s.config.TLS)
+	}
+	go s.httpSrv.Serve(ln)
 	return nil
 }
 
@@ -185,6 +205,12 @@ func (s *HTTPServer) handleDispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	peer := r.Header.Get("X-Octpex-Federation-Source")
+	if peer != "" && (r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || r.TLS.VerifiedChains[0][0].VerifyHostname(peer) != nil) {
+		http.Error(w, "unverified federation peer", http.StatusForbidden)
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var env protocol.NervousEnvelope
 	if err := json.NewDecoder(r.Body).Decode(&env); err != nil {
 		http.Error(w, fmt.Sprintf("invalid envelope payload: %v", err), http.StatusBadRequest)
@@ -203,7 +229,20 @@ func (s *HTTPServer) handleDispatch(w http.ResponseWriter, r *http.Request) {
 	if env.SourceNode == "" {
 		env.SourceNode = "web-ui-operator"
 	}
-	env.Security = protocol.DefaultSecurityContext(env.SessionID)
+	if peer != "" {
+		if env.Plane != protocol.PlaneLateral || env.HopCount < 1 || env.Security.MaxAllowedHops < 1 || env.Security.MaxAllowedHops > 2 || !slices.Contains(env.Security.AllowedCapabilities, env.TargetCapability) {
+			http.Error(w, "invalid forwarded scope", http.StatusForbidden)
+			return
+		}
+	} else {
+		if (env.Plane != "" && env.Plane != protocol.PlaneVertical) || env.HopCount != 0 {
+			http.Error(w, "expected initial vertical dispatch", http.StatusForbidden)
+			return
+		}
+		env.Plane = protocol.PlaneVertical
+		env.Security = protocol.DefaultSecurityContext(env.SessionID)
+		env.Security.AllowMutation = false
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
@@ -279,29 +318,29 @@ const dashboardHTML = `<!DOCTYPE html>
 <body>
   <header>
     <h1>Octpex Biomimetic Agent Nervous System <span class="badge">LIVE KERNEL</span></h1>
-    <div style="font-size: 13px; color: #8b949e;">Profile: <strong>Local/Cluster Mesh</strong> | Port: <strong>8080</strong></div>
+    <div style="font-size: 13px; color: #8b949e;">Runtime topology</div>
   </header>
 
   <div class="grid">
     <div class="card">
       <div class="card-title">Edge Decoupling Ratio</div>
-      <div class="card-value" id="val-decoupling">85.0%</div>
-      <div class="card-sub">Resolved 100% On-Premise</div>
+      <div class="card-value" id="val-decoupling">0%</div>
+      <div class="card-sub">Share of completed and escalated tasks</div>
     </div>
     <div class="card">
-      <div class="card-title">Cloud Tokens Saved</div>
-      <div class="card-value" id="val-tokens">129,000</div>
+      <div class="card-title">Estimated Cloud Tokens Saved</div>
+      <div class="card-value" id="val-tokens">0</div>
       <div class="card-sub">vs. Commercial Frontier Baseline</div>
     </div>
     <div class="card">
       <div class="card-title">Estimated Cost Savings</div>
-      <div class="card-value" id="val-cost">$0.81 USD</div>
-      <div class="card-sub">FinOps ROI Audited</div>
+      <div class="card-value" id="val-cost">$0.00 USD</div>
+      <div class="card-sub">Estimated against 1,500 cloud tokens per resolved task</div>
     </div>
     <div class="card">
       <div class="card-title">Active Octo-Arms</div>
-      <div class="card-value" id="val-arms">3</div>
-      <div class="card-sub">Basal Nerve Ring Healthy</div>
+      <div class="card-value" id="val-arms">0</div>
+      <div class="card-sub">Workers with a current heartbeat</div>
     </div>
   </div>
 
@@ -318,21 +357,7 @@ const dashboardHTML = `<!DOCTYPE html>
 
     <div class="tier-title">3. OCTO-ARMS MESH (Horizontal Tentacles & Edge Ganglia)</div>
     <div class="arms-container" id="arms-mesh">
-      <div class="arm-card">
-        <div class="arm-name"><span>arm-telemetry-01</span> <span class="arm-status">ONLINE</span></div>
-        <div style="font-size: 12px; color: #8b949e; margin-top: 4px;">Telemetry Distiller (Level 0 Native FSM)</div>
-        <div class="tags"><span class="tag">distill-telemetry</span></div>
-      </div>
-      <div class="arm-card">
-        <div class="arm-name"><span>arm-patch-02</span> <span class="arm-status">ONLINE</span></div>
-        <div style="font-size: 12px; color: #8b949e; margin-top: 4px;">Patch Synthesizer (Level 1 Edge SLM)</div>
-        <div class="tags"><span class="tag">patch_synthesizer</span></div>
-      </div>
-      <div class="arm-card">
-        <div class="arm-name"><span>arm-fsm-03</span> <span class="arm-status">ONLINE</span></div>
-        <div style="font-size: 12px; color: #8b949e; margin-top: 4px;">Native FSM Verifier (Level 0 Go)</div>
-        <div class="tags"><span class="tag">fsm_verifier</span></div>
-      </div>
+
     </div>
 
     <div style="margin-top: 24px;">
@@ -347,7 +372,7 @@ const dashboardHTML = `<!DOCTYPE html>
     <div style="margin-top: 24px;">
       <div class="tier-title" style="display: flex; justify-content: space-between; align-items: center;">
         <span>Live Nervous Pulse Stream (SSE: /api/v1/events)</span>
-        <span style="font-size: 11px; color: var(--green); text-transform: none; font-weight: normal;">Connected</span>
+        <span style="font-size: 11px; color: var(--green); text-transform: none; font-weight: normal;">SSE</span>
       </div>
       <div id="event-feed" style="background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 12px; height: 160px; overflow-y: auto; font-family: monospace; font-size: 11px; display: flex; flex-direction: column; gap: 4px;">
         <div style="color: #8b949e;">[System] Listening for real-time nervous envelope pulses...</div>
@@ -366,10 +391,7 @@ const dashboardHTML = `<!DOCTYPE html>
           if (feed) {
             const line = document.createElement('div');
             const timeStr = new Date(data.timestamp || Date.now()).toLocaleTimeString();
-            let color = '#58a6ff';
-            if (data.type === 'CONNECTED') color = '#3fb950';
-            if (data.type === 'LATERAL_HANDOFF') color = '#bc8cff';
-            line.innerHTML = '<span style="color:#8b949e;">[' + timeStr + ']</span> <strong style="color:' + color + ';">[' + (data.type || 'PULSE') + ']</strong> ' + (data.details || '');
+            line.textContent = '[' + timeStr + '] ' + (data.type || 'PULSE') + ' ' + (data.details || '');
             feed.prepend(line);
             if (feed.childNodes.length > 50) {
               feed.removeChild(feed.lastChild);
@@ -385,11 +407,18 @@ const dashboardHTML = `<!DOCTYPE html>
       try {
         const topoRes = await fetch('/api/v1/topology');
         const topo = await topoRes.json();
-        document.getElementById('val-arms').innerText = topo.arm_count || 3;
+        document.getElementById('val-arms').innerText = topo.arm_count ?? 0;
 
+        const mesh = document.getElementById('arms-mesh');
+        mesh.replaceChildren(...(topo.active_arms || []).map(arm => {
+          const card = document.createElement('div');
+          card.className = 'arm-card';
+          card.textContent = arm.arm_id + ' / ' + (arm.capability_tags || []).join(', ');
+          return card;
+        }));
         const finRes = await fetch('/api/v1/finops');
         const fin = await finRes.json();
-        if (fin.total_tasks > 0) {
+        if (typeof fin.total_tasks === "number") {
           document.getElementById('val-decoupling').innerText = (fin.edge_decoupling_ratio * 100).toFixed(1) + '%';
           document.getElementById('val-tokens').innerText = (fin.estimated_tokens_saved || 0).toLocaleString();
           document.getElementById('val-cost').innerText = '$' + (fin.estimated_cost_saved_usd || 0).toFixed(2) + ' USD';
@@ -398,6 +427,7 @@ const dashboardHTML = `<!DOCTYPE html>
         console.log('Poll error', e);
       }
     }
+    refreshStats();
     setInterval(refreshStats, 3000);
 
     async function dispatchTask() {
@@ -413,7 +443,7 @@ const dashboardHTML = `<!DOCTYPE html>
           body: JSON.stringify({
             plane: 'VERTICAL',
             target_capability: cap,
-            parameters: { prompt: 'Execute triage via web UI' }
+            parameters: { log: 'INFO ready\nWARN queue delay\nWARN queue delay' }
           })
         });
         const data = await res.json();

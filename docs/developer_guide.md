@@ -13,7 +13,16 @@ In Octpex, an **Octo-Arm (Ganglion)** is a standardized distributed execution wo
 - **Level 3 (Multi-Agent Crew)**: Encapsulated debate teams or crews (AutoGen, CrewAI) acting as single high-cohesion nodes.
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
     
@@ -120,7 +129,16 @@ In Octpex, Google Agent Development Kit (ADK) agents are encapsulated as **Level
 #### 3.4.1 Architectural Role & Workflow
 
 ```mermaid
-%%{init: {"themeVariables": {"background": "transparent", "mainBkg": "transparent", "subGraphBkg": "transparent", "clusterBkg": "transparent", "edgeLabelBackground": "transparent"}}}%%
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
 flowchart TD
     classDef default fill:none;
 

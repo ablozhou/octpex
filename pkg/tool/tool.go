@@ -9,9 +9,9 @@ import (
 )
 
 var (
-	ErrToolNotFound       = errors.New("tool: tool URI not found")
-	ErrExecutionTimeout   = errors.New("tool: execution timed out")
-	ErrInvalidParameters  = errors.New("tool: invalid parameter schema")
+	ErrToolNotFound      = errors.New("tool: tool URI not found")
+	ErrExecutionTimeout  = errors.New("tool: execution timed out")
+	ErrInvalidParameters = errors.New("tool: invalid parameter schema")
 )
 
 // ToolSchema describes the parameter requirements and documentation of a tool.
@@ -24,12 +24,12 @@ type ToolSchema struct {
 
 // ToolResult encapsulates the output of a tool invocation.
 type ToolResult struct {
-	ToolName    string         `json:"tool_name"`
-	Success     bool           `json:"success"`
-	Output      string         `json:"output"`
-	Error       string         `json:"error,omitempty"`
-	DurationMs  int64          `json:"duration_ms"`
-	ArtifactURI string         `json:"artifact_uri,omitempty"`
+	ToolName    string `json:"tool_name"`
+	Success     bool   `json:"success"`
+	Output      string `json:"output"`
+	Error       string `json:"error,omitempty"`
+	DurationMs  int64  `json:"duration_ms"`
+	ArtifactURI string `json:"artifact_uri,omitempty"`
 }
 
 // ToolHandlerFunc executes tool logic.
@@ -48,7 +48,14 @@ type SecurityScanner interface {
 
 // DynamicMCPBox is the shared tool registry on the Basal Nerve Ring.
 // It holds enterprise MCP tools and runtime-synthesized scripts produced by Octo-Brain's self-evolution loop.
+type ScriptRunner interface {
+	Run(context.Context, string, string, map[string]any) (*ToolResult, error)
+}
+
+var ErrNoScriptRunner = errors.New("tool: no isolated script runner configured")
+
 type DynamicMCPBox struct {
+	runner   ScriptRunner
 	mu       sync.RWMutex
 	schemas  map[string]*ToolSchema
 	handlers map[string]ToolHandlerFunc
@@ -68,6 +75,12 @@ func (b *DynamicMCPBox) SetSecurityScanner(scanner SecurityScanner) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.scanner = scanner
+}
+
+func (b *DynamicMCPBox) SetScriptRunner(r ScriptRunner) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.runner = r
 }
 
 // RegisterTool adds a static or dynamic tool definition to the box.
@@ -101,13 +114,13 @@ func (b *DynamicMCPBox) RegisterDynamicScript(name, description, code string) er
 	}
 
 	handler := func(ctx context.Context, params map[string]any) (*ToolResult, error) {
-		// Mock execution of synthesized dynamic script
-		return &ToolResult{
-			ToolName:   name,
-			Success:    true,
-			Output:     fmt.Sprintf("executed dynamic script '%s' successfully", name),
-			DurationMs: 5,
-		}, nil
+		b.mu.RLock()
+		runner := b.runner
+		b.mu.RUnlock()
+		if runner == nil {
+			return nil, ErrNoScriptRunner
+		}
+		return runner.Run(ctx, name, code, params)
 	}
 
 	b.RegisterTool(schema, handler)

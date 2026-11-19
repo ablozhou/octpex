@@ -68,3 +68,23 @@ max_parallel_tasks: 64
 		t.Fatalf("expected redis substrate, got %s", cfg.Substrate.Type)
 	}
 }
+
+func TestShippedProfilesAndSections(t *testing.T) {
+	for _, profile := range []string{"cluster", "local"} {
+		c, err := LoadConfig("../../configs/" + profile + ".yaml")
+		if err != nil || c.Profile != profile {
+			t.Fatalf("%s: %v", profile, err)
+		}
+	}
+	file := filepath.Join(t.TempDir(), "override.yaml")
+	if err := os.WriteFile(file, []byte("bus:\n  url: nats://other:4223\n  queue_group: other\nring:\n  endpoints: [http://other:2379]\nprofile: cluster\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadConfig(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Bus.URL != "nats://other:4223" || c.Bus.QueueGroup != "other" || c.Ring.Endpoints[0] != "http://other:2379" {
+		t.Fatalf("lost override: %+v", c)
+	}
+}

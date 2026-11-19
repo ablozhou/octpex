@@ -1,0 +1,319 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: octpex-system
+---
+# 1. Redis Shared Data Substrate (CAS + Leases)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-cluster
+  namespace: octpex-system
+  labels:
+    app: redis-cluster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-cluster
+  template:
+    metadata:
+      labels:
+        app: redis-cluster
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster
+  namespace: octpex-system
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: redis
+  selector:
+    app: redis-cluster
+---
+# 2. NATS JetStream Dual-Plane Bus
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nats-cluster
+  namespace: octpex-system
+  labels:
+    app: nats-cluster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nats-cluster
+  template:
+    metadata:
+      labels:
+        app: nats-cluster
+    spec:
+      containers:
+        - name: nats
+          image: nats:2.10-alpine
+          args: ["-js"]
+          ports:
+            - containerPort: 4222
+              name: nats
+            - containerPort: 8222
+              name: monitoring
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats-cluster
+  namespace: octpex-system
+spec:
+  type: ClusterIP
+  ports:
+    - port: 4222
+      targetPort: 4222
+      name: nats
+    - port: 8222
+      targetPort: 8222
+      name: monitoring
+  selector:
+    app: nats-cluster
+---
+# 3. etcd Basal Nerve Ring Capability Registry
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etcd-cluster
+  namespace: octpex-system
+  labels:
+    app: etcd-cluster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: etcd-cluster
+  template:
+    metadata:
+      labels:
+        app: etcd-cluster
+    spec:
+      containers:
+        - name: etcd
+          image: quay.io/coreos/etcd:v3.5.15
+          env:
+            - name: ETCD_LISTEN_CLIENT_URLS
+              value: "http://0.0.0.0:2379"
+            - name: ETCD_ADVERTISE_CLIENT_URLS
+              value: "http://etcd-cluster:2379"
+            - name: ALLOW_NONE_AUTHENTICATION
+              value: "yes"
+          ports:
+            - containerPort: 2379
+              name: etcd-client
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: etcd-cluster
+  namespace: octpex-system
+spec:
+  type: ClusterIP
+  ports:
+    - port: 2379
+      targetPort: 2379
+      name: etcd-client
+  selector:
+    app: etcd-cluster
+---
+# 4. Octpex Cluster Shared Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: octpex-cluster-config
+  namespace: octpex-system
+data:
+  cluster.yaml: |
+    profile: cluster
+    brain:
+      max_parallel_tasks: 16
+      escalation_timeout_ms: 30000
+      frontier_provider: "openai"
+      frontier_base_url: "https://api.openai.com/v1"
+      frontier_model: "frontier-reasoning"
+      frontier_temperature: 0.1
+    ring:
+      registry_type: "etcd"
+      heartbeat_ttl: 5000000000
+      sweep_interval: 2000000000
+      endpoints:
+        - "etcd-cluster.octpex-system.svc.cluster.local:2379"
+      lease_ttl_seconds: 5
+    substrate:
+      type: "redis"
+      default_ttl: 86400000000000
+      endpoint: "redis-cluster.octpex-system.svc.cluster.local:6379"
+      key_prefix: "octpex:sub:"
+    bus:
+      type: "nats_jetstream"
+      buffer_size: 4096
+      url: "nats://nats-cluster.octpex-system.svc.cluster.local:4222"
+      queue_group: "octpex-arm-workers"
+      vertical_subject: "octpex.vertical.dispatch.*"
+      lateral_subject: "octpex.lateral.handoff.*"
+    sandbox:
+      provider: "abloex"
+      memory_limit_mb: 512
+      timeout: 10000000000
+      network_isolated: true
+---
+# 5. Octpex Entry Cortex (Dispatch & Dashboard Node, worker=false)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: octpex-entry
+  namespace: octpex-system
+  labels:
+    app: octpex-entry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: octpex-entry
+  template:
+    metadata:
+      labels:
+        app: octpex-entry
+    spec:
+      containers:
+        - name: octpex-entry
+          image: octpex/kernel:0.5.0
+          imagePullPolicy: IfNotPresent
+          args: ["run", "-profile=cluster", "-config=/etc/octpex/cluster.yaml", "-worker=false", "-port=8080"]
+          ports:
+            - containerPort: 8080
+              name: http-api
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/octpex
+          livenessProbe:
+            httpGet:
+              path: /api/v1/topology
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/v1/topology
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+      volumes:
+        - name: config-volume
+          configMap:
+            name: octpex-cluster-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: octpex-service
+  namespace: octpex-system
+  labels:
+    app: octpex-entry
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http-api
+  selector:
+    app: octpex-entry
+---
+# 6. Octpex Edge Ganglion Workers (2 Replicas, mount telemetry worker)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: octpex-worker
+  namespace: octpex-system
+  labels:
+    app: octpex-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: octpex-worker
+  template:
+    metadata:
+      labels:
+        app: octpex-worker
+    spec:
+      containers:
+        - name: octpex-worker
+          image: octpex/kernel:0.5.0
+          imagePullPolicy: IfNotPresent
+          args: ["run", "-profile=cluster", "-config=/etc/octpex/cluster.yaml", "-port=8080"]
+          ports:
+            - containerPort: 8080
+              name: http-api
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/octpex
+          livenessProbe:
+            httpGet:
+              path: /api/v1/topology
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/v1/topology
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+      volumes:
+        - name: config-volume
+          configMap:
+            name: octpex-cluster-config

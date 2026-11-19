@@ -8,60 +8,10 @@ import (
 	"time"
 )
 
-func TestDialClusterSubsystems(t *testing.T) {
-	ctx := context.Background()
-	cfg := &config.Config{
-		Substrate: config.SubstrateConfig{
-			Type:      "redis",
-			Endpoint:  "127.0.0.1:6379",
-			KeyPrefix: "octpex:test:",
-		},
-		Bus: config.BusConfig{
-			Type:       "nats",
-			URL:        "nats://127.0.0.1:4222",
-			QueueGroup: "octpex-test-cluster",
-		},
-		Ring: config.RingConfig{
-			RegistryType:    "etcd",
-			Endpoints:       []string{"127.0.0.1:2379"},
-			LeaseTTLSeconds: 5,
-		},
-	}
-
-	subsystems, err := DialClusterSubsystems(ctx, cfg)
-	if err != nil {
-		t.Fatalf("DialClusterSubsystems failed: %v", err)
-	}
-
-	if subsystems == nil {
-		t.Fatal("expected non-nil subsystems")
-	}
-
-	if subsystems.Substrate == nil {
-		t.Error("expected non-nil Substrate")
-	}
-	if subsystems.Bus == nil {
-		t.Error("expected non-nil Bus")
-	}
-	if subsystems.Registry == nil {
-		t.Error("expected non-nil Registry")
-	}
-}
-
-func TestDialersDefaults(t *testing.T) {
-	redisCmd := DialRedisCommander("")
-	if redisCmd == nil {
-		t.Error("DialRedisCommander returned nil")
-	}
-
-	natsCli := DialNATSClient("")
-	if natsCli == nil {
-		t.Error("DialNATSClient returned nil")
-	}
-
-	etcdCli := DialETCDClient(nil)
-	if etcdCli == nil {
-		t.Error("DialETCDClient returned nil")
+func TestStandaloneRejectsCluster(t *testing.T) {
+	ds, err := DialClusterSubsystems(context.Background(), config.DefaultClusterConfig())
+	if ds != nil || err == nil {
+		t.Fatal("expected a cluster driver error")
 	}
 }
 

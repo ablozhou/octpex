@@ -1,0 +1,45 @@
+x-kernel: &kernel
+  pull_policy: never
+  image: octpex-acceptance:${COMPOSE_PROJECT_NAME}
+  depends_on:
+    - redis
+    - etcd
+    - nats
+  ports:
+    - "127.0.0.1::8080"
+  restart: on-failure
+  healthcheck:
+    test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/v1/topology"]
+    interval: 2s
+    timeout: 2s
+    retries: 30
+
+services:
+  entry:
+    <<: *kernel
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile
+    command: ["run", "-config=/app/configs/cluster.yaml", "-worker=false"]
+  worker:
+    <<: *kernel
+    command: ["run", "-config=/app/configs/cluster.yaml"]
+  redis:
+    image: redis:7.2-alpine
+    networks:
+      default:
+        aliases: [redis-cluster]
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.15
+    environment:
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+    networks:
+      default:
+        aliases: [etcd-cluster]
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js"]
+    networks:
+      default:
+        aliases: [nats-cluster]

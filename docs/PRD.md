@@ -4,7 +4,7 @@
 **Tagline:** Biomimetic Distributed Cognitive Topology & Self-Evolving Edge-Cloud Agent Fabric  
 **Document Version:** 2.2.0  
 **License:** Apache License 2.0  
-**Status:** Ready for Implementation  
+**Document Status:** Official Production Specification  
 
 ---
 
@@ -277,11 +277,12 @@ Octpex natively supports four canonical collaboration patterns across distribute
 * Replacing OS/hypervisor container sandboxes (delegated via `ToolInvocationSPI` to pluggable sandboxes such as AbloEx).
 * Building a consumer-facing graphical drag-and-drop workflow canvas (v1.0 focuses on high-performance programmatic SPIs, real-time web observability dashboards, and structured REST APIs).
 
-### 8.2 Production Capabilities Delivered & Verified
-* **Single-Node Biomimetic Kernel (`profile: local`):** In-memory Basal Ring, Ollama SLM adapter, Dual-Engine System-1 Decision Adapter (`Karpo-Decision` + `Laya`) with Hardware VRAM Guard, Tri-Gate Objective Escalation Funnel, and FinOps token savings logger.
-* **Enterprise Distributed Cluster (`profile: cluster`):** NATS JetStream dual-plane buses with queue groups, Redis/Valkey CAS Shared Data Substrate (`sub://`), etcd 5-second lease heartbeats, and backpressure work stealing.
-* **Self-Evolution & Dynamic MCP Tool Box:** Brain-to-Arm tool synthesis pipeline, standard MCP client (`stdio` and streaming HTTP/SSE), and AbloEx static AST pre-admission security checks.
-* **Multi-Framework Python SDK (`octpex-sdk`):** Native production adapters for Google ADK, LangGraph, Microsoft AutoGen, and CrewAI, backed by `OctoArmDaemon` for standalone worker hosting.
-* **Real-Time Observability & Performance:** Embedded HTTP server with Server-Sent Events (SSE: `/api/v1/events`), dynamic web dashboard, and verified throughput (>9.6M CAS ops/s, >8.1M bus msgs/s).
-* **Multi-Region Cross-Cluster Federation:** Inter-datacenter peer capability discovery, boundary hop attenuation, and latency probe telemetry.
-* **Cloud-Native Deployment Artifacts:** Multi-stage Docker images, Docker Compose cluster stack, and production Helm v3 Chart (`deploy/helm/octpex`) with HPA and health probes.
+### 8.2 Production Feature & Capability Matrix
+
+| Layer / Subsystem | Primary Capability | Deployment Topology | Interfaces & Protocols |
+|---|---|---|---|
+| Octo-Arm (Edge/Worker) | Sensory perception, log deduplication, fast-path tool execution | Worker nodes (Docker / K8s Pod) | In-process Go / Python SDK Bridge |
+| Octo-Brain (Core Router) | Semantic arbiter, conflict resolution, macro planning | Entry node / Standalone daemon | HTTP / gRPC REST APIs |
+| Sucker-Ring (Coordination) | Ephemeral state, CAS artifact storage, pub/sub messaging | Cluster state mesh | Redis 7.x, NATS JetStream, etcd v3 |
+| Production Orchestration | Multi-agent cluster deployment, health checks, discovery | Kubernetes All-in-One & Helm/Compose | `deploy/k8s/all-in-one.yaml`, Docker |
+| Extensibility & Sandboxing | Pluggable tool execution, container isolation, MCP dynamic tools | Worker isolation runtime | `ToolInvocationSPI`, Docker CLI, MCP JSON-RPC |

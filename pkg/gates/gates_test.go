@@ -88,3 +88,15 @@ func TestGate3BehavioralCheck(t *testing.T) {
 		t.Fatal("expected failure on low token logprob")
 	}
 }
+
+func TestRequiredOutputFields(t *testing.T) {
+	fields := map[string]string{"status": "string"}
+	for _, bad := range []string{`{}`, `{"status":true}`, `null`} {
+		if VerifyObjectFields([]byte(bad), fields) == nil {
+			t.Fatalf("accepted %s", bad)
+		}
+	}
+	if err := VerifyObjectFields([]byte(`{"status":"ok"}`), fields); err != nil {
+		t.Fatal(err)
+	}
+}

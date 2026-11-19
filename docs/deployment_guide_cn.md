@@ -1,6 +1,6 @@
 # Octpex 部署与集群运维综合指南
 
-本文档涵盖 Octpex 的双模运行配置、生产集群依赖以及三大开箱即用业务实战示例的演练指南。
+本文档涵盖 Octpex 的双模运行配置、Kubernetes 与容器化集群依赖以及开箱即用业务实战示例的演练指南。
 
 ---
 
@@ -12,8 +12,8 @@ Octpex 通过 `configs/` 目录下的配置文件进行运行时拓扑控制：
 
 - **适用场景**：单机开发工作站、CI/CD 流水线与边缘离线测试。
 - **运行拓扑**：零外部集群依赖（Go 内存通道总线、内存原子 CAS 数据基质、进程内注册表）。
-- **边缘算力**：本地 Ollama 守护进程（`http://localhost:11434`），运行 `qwen2.5-coder:0.5b` 或 `7b`。
-- **安全沙盒**：AbloEx 施加 256MB 内存与 5 秒超时硬配额。
+- 默认遥测 Worker 使用原生 Go。嵌入 SLM 适配器的应用可另行配置 Ollama。
+- 动态脚本由显式配置的隔离执行器运行。Docker 示例使用 256 MiB 和 5 秒超时。
 - **启动指令**：
   ```bash
   go run cmd/octpex/main.go -profile=local
@@ -27,7 +27,7 @@ Octpex 通过 `configs/` 目录下的配置文件进行运行时拓扑控制：
 - **能力注册表**：基于 etcd 租约心跳（5 秒 TTL）实现节点故障秒级感知与自动踢出。
 - **启动指令**：
   ```bash
-  go run cmd/octpex/main.go -profile=cluster -config=configs/cluster.yaml
+  (cd cluster && go run -mod=mod . -profile=cluster -config=../configs/cluster.yaml)
   ```
 
 ### 1.3 Web 可视化实时看板与 REST API
@@ -53,7 +53,15 @@ Octpex 在 `deploy/` 目录下提供了生产级开箱即用的集群交付配�
   docker compose -f deploy/docker-compose.yaml up -d
   ```
   一键拉起 Octpex 内核、NATS JetStream、Redis CAS 基质、etcd 注册表与 Ollama 容器。
-- **Kubernetes 原生编排清单**：
+
+  双节点五容器验收可单独运行 `python cluster/test_workflow.py`，自动检查跨节点派发、Redis 产物和 B 节点离线。
+- **Kubernetes 原生编排清单 (All-in-One 包含依赖一键拉起)**：
+  详见 [docs/k8s_multi_agent_guide_cn.md](file:///c:/Users/abloz/Documents/code/octpex/docs/k8s_multi_agent_guide_cn.md)：
+  ```bash
+  # 一键部署包含 Redis/NATS/etcd 与 Entry+Worker 多 Agent 的完整拓扑
+  kubectl apply -f deploy/k8s/all-in-one.yaml
+  ```
+- **Kubernetes 生产独立部署清单**：
   ```bash
   kubectl apply -f deploy/k8s/deployment.yaml
   ```
@@ -94,11 +102,12 @@ Octpex 在 `examples/` 目录下提供了四套开箱即用的完整实战代码
 ### 2.3 示例三：自进化解析器闭环 (“大脑教腕足”) (`examples/self_evolving_parser/`)
 
 展示跨层级自进化与动态工具蒸馏闭环：
-- **第一阶段**：腕足遇到全新专有格式日志（`OCTO-V2|...`），触发 Gate 2/Gate 3 门禁，向中心大脑升级。大脑动态合成解析工具，提交 AbloEx 静态 AST 扫描后准入 `DynamicMCPBox`。
-- **第二阶段**：后续相同日志流入，腕足直接在本地命中蒸馏工具，以 **0 云端 Token** 和 **< 1ms 延迟** 本地消化。
+- 第一阶段返回升级结果并注册随示例提供的 Python 解析器。
+- 第二阶段在隔离容器中处理实际输入，返回脚本标准输出并报告测得的耗时。
 - **运行**：
   ```bash
-  go run examples/self_evolving_parser/main.go
+  docker pull python:3.12-alpine
+  go run ./examples/self_evolving_parser
   ```
 
 ### 2.4 示例四：Python 异构智能体网格演练 (`examples/python_heterogeneous_mesh/`)
@@ -120,3 +129,16 @@ Octpex 内置了 FinOps 财务审计计算引擎（`pkg/telemetry/finops.go`）�
 - 实时记录云端 Token、边缘小模型 Token、耗时与升级率。
 - 对比全量调用商业大模型的基准，动态计算为企业节省的美元资金（$ Saved USD）。
 - 格式化输出高管财务汇报看板（实现 70%~85% 的推理成本节省）。
+
+## 4. 验证默认任务
+
+```sh
+go run ./cmd/octpex run -profile=local -port=8080
+```
+
+```sh
+curl -s http://localhost:8080/api/v1/dispatch -H 'Content-Type: application/json' \
+  -d '{"target_capability":"distill-telemetry","session_id":"demo","envelope_id":"e1","trace_id":"t1","parameters":{"log":"WARN retry\nWARN retry"}}'
+```
+
+预期返回 `SUCCESS`、一行 `WARN retry`、版本为 1 的产物引用和执行节点 ID。省略日志会返回 `ESCALATED` 及仲裁决定。FinOps 和 SSE 的观察范围为当前进程。

@@ -37,28 +37,29 @@ type TaskRecord struct {
 
 // FinOpsSummary provides high-level financial and operational efficiency metrics.
 type FinOpsSummary struct {
-	TotalTasks           int64   `json:"total_tasks"`
-	EdgeResolvedTasks    int64   `json:"edge_resolved_tasks"`
-	EscalatedTasks       int64   `json:"escalated_tasks"`
-	EdgeDecouplingRatio  float64 `json:"edge_decoupling_ratio"` // e.g. 0.85 (85%)
-	TotalCloudTokensUsed int64   `json:"total_cloud_tokens_used"`
-	TotalEdgeTokensUsed  int64   `json:"total_edge_tokens_used"`
-	EstimatedTokensSaved int64   `json:"estimated_tokens_saved"`
+	TotalTasks            int64   `json:"total_tasks"`
+	EdgeResolvedTasks     int64   `json:"edge_resolved_tasks"`
+	EscalatedTasks        int64   `json:"escalated_tasks"`
+	EdgeDecouplingRatio   float64 `json:"edge_decoupling_ratio"` // e.g. 0.85 (85%)
+	TotalCloudTokensUsed  int64   `json:"total_cloud_tokens_used"`
+	TotalEdgeTokensUsed   int64   `json:"total_edge_tokens_used"`
+	EstimatedTokensSaved  int64   `json:"estimated_tokens_saved"`
 	EstimatedCostSavedUSD float64 `json:"estimated_cost_saved_usd"`
-	AverageEdgeLatencyMs float64 `json:"average_edge_latency_ms"`
+	AverageEdgeLatencyMs  float64 `json:"average_edge_latency_ms"`
 }
 
 // FinOpsCollector tracks live operational token consumption and financial ROI.
 type FinOpsCollector struct {
-	mu           sync.RWMutex
-	records      []TaskRecord
-	rates        PricingRates
-	totalTasks   int64
-	edgeTasks    int64
-	escalated    int64
-	cloudTokens  int64
-	edgeTokens   int64
-	edgeDuration time.Duration
+	mu sync.RWMutex
+
+	rates             PricingRates
+	totalTasks        int64
+	edgeTasks         int64
+	escalated         int64
+	meteredCloudTasks int64
+	cloudTokens       int64
+	edgeTokens        int64
+	edgeDuration      time.Duration
 }
 
 // NewFinOpsCollector creates an initialized FinOps metrics collector.
@@ -73,11 +74,13 @@ func (c *FinOpsCollector) RecordTask(record TaskRecord) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.records = append(c.records, record)
 	c.totalTasks++
 
 	if record.Escalated {
 		c.escalated++
+		if record.CloudTokens > 0 {
+			c.meteredCloudTasks++
+		}
 	} else if record.Level != "BRAIN" {
 		c.edgeTasks++
 		c.edgeDuration += record.Duration
@@ -101,7 +104,7 @@ func (c *FinOpsCollector) GenerateSummary(baselineTokensPerTask int) FinOpsSumma
 	}
 
 	// Theoretical tokens consumed if every task were routed to Frontier LLM
-	theoreticalFrontierTokens := c.totalTasks * int64(baselineTokensPerTask)
+	theoreticalFrontierTokens := (c.edgeTasks + c.meteredCloudTasks) * int64(baselineTokensPerTask)
 	tokensSaved := theoreticalFrontierTokens - c.cloudTokens
 	if tokensSaved < 0 {
 		tokensSaved = 0
@@ -123,15 +126,15 @@ func (c *FinOpsCollector) GenerateSummary(baselineTokensPerTask int) FinOpsSumma
 	}
 
 	return FinOpsSummary{
-		TotalTasks:           c.totalTasks,
-		EdgeResolvedTasks:    c.edgeTasks,
-		EscalatedTasks:       c.escalated,
-		EdgeDecouplingRatio:  decouplingRatio,
-		TotalCloudTokensUsed: c.cloudTokens,
-		TotalEdgeTokensUsed:  c.edgeTokens,
-		EstimatedTokensSaved: tokensSaved,
+		TotalTasks:            c.totalTasks,
+		EdgeResolvedTasks:     c.edgeTasks,
+		EscalatedTasks:        c.escalated,
+		EdgeDecouplingRatio:   decouplingRatio,
+		TotalCloudTokensUsed:  c.cloudTokens,
+		TotalEdgeTokensUsed:   c.edgeTokens,
+		EstimatedTokensSaved:  tokensSaved,
 		EstimatedCostSavedUSD: costSavedUSD,
-		AverageEdgeLatencyMs: avgLatencyMs,
+		AverageEdgeLatencyMs:  avgLatencyMs,
 	}
 }
 

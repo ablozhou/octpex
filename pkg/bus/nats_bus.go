@@ -39,6 +39,12 @@ func NewNATSNervousBus(client NATSClient, queueGroup string) *NATSNervousBus {
 	}
 }
 
+// SetSubjects configures both subject prefixes before any subscriptions.
+func (n *NATSNervousBus) SetSubjects(vertical, lateral string) {
+	n.verticalSubj = vertical
+	n.lateralSubj = lateral
+}
+
 // Subscribe registers an Arm capability handler with the NATS queue group.
 func (n *NATSNervousBus) Subscribe(capability string, handler MessageHandler) error {
 	n.mu.Lock()
@@ -71,8 +77,7 @@ func (n *NATSNervousBus) Subscribe(capability string, handler MessageHandler) er
 			return nil, fmt.Errorf("failed to unmarshal lateral envelope: %w", err)
 		}
 
-		// Security attenuation on lateral arrival
-		env.Security.Attenuate(env.TargetCapability)
+		// The publisher accounts for the lateral hop before serialization.
 
 		res, err := handler(ctx, &env)
 		if err != nil {

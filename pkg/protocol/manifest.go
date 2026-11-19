@@ -7,9 +7,9 @@ import (
 
 // SLMProfile describes the local small language model hosted in an Arm's ganglion.
 type SLMProfile struct {
-	Provider         string  `json:"provider"`                    // e.g. "ollama", "llamacpp", "vllm", "mock", "none"
-	Model            string  `json:"model"`                       // e.g. "qwen2.5:3b", "none"
-	SafeContextLimit int     `json:"safe_context_limit"`          // Max token capacity
+	Provider         string  `json:"provider"`           // e.g. "ollama", "llamacpp", "vllm", "mock", "none"
+	Model            string  `json:"model"`              // e.g. "qwen2.5:3b", "none"
+	SafeContextLimit int     `json:"safe_context_limit"` // Max token capacity
 	Temperature      float32 `json:"temperature"`
 }
 
@@ -63,6 +63,7 @@ type ArmTelemetry struct {
 
 // ArmManifest is the registration card published by an Octo-Arm to the Basal Nerve Ring registry.
 type ArmManifest struct {
+	RequiredOutputFields  map[string]string     `json:"required_output_fields,omitempty"`
 	ArmID                 string                `json:"arm_id"`
 	RegionID              string                `json:"region_id,omitempty"` // Multi-cluster region identifier (e.g. "us-east-1", "edge-a")
 	RuntimeAdapter        string                `json:"runtime_adapter"`     // e.g. "go-native-fsm", "adk", "langgraph", "autogen", "ollama"
