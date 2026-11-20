@@ -1,14 +1,17 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
+	"octpex/pkg/bus"
 	"octpex/pkg/protocol"
 	"slices"
+	"strings"
 
 	"octpex/pkg/substrate"
 	"octpex/pkg/telemetry"
@@ -77,6 +80,10 @@ func NewHTTPServer(
 	mux.HandleFunc("/api/v1/finops", s.handleFinOps)
 	mux.HandleFunc("/api/v1/dispatch", s.handleDispatch)
 	mux.HandleFunc("/api/v1/events", s.handleEvents)
+	mux.HandleFunc("/api/v1/register", s.handleRegister)
+	mux.HandleFunc("/api/v1/heartbeat", s.handleHeartbeat)
+	mux.HandleFunc("/api/v1/chat", s.handleChat)
+	mux.HandleFunc("/api/v1/skills/tree", s.handleSkillTree)
 
 	s.httpSrv = &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
@@ -189,6 +196,20 @@ func (s *HTTPServer) handleTopology(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+func (s *HTTPServer) handleSkillTree(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var arms []*protocol.ArmManifest
+	if s.registry != nil {
+		arms = s.registry.ListHealthyArms()
+	}
+	tree := protocol.BuildSkillTree(arms)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(tree)
+}
+
 func (s *HTTPServer) handleFinOps(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if s.finops == nil {
@@ -266,6 +287,285 @@ func (s *HTTPServer) handleDispatch(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(result)
 }
 
+func (s *HTTPServer) handleRegister(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var manifest protocol.ArmManifest
+	if err := json.NewDecoder(r.Body).Decode(&manifest); err != nil {
+		http.Error(w, fmt.Sprintf("invalid manifest: %v", err), http.StatusBadRequest)
+		return
+	}
+	if manifest.ArmID == "" {
+		http.Error(w, "arm_id is required", http.StatusBadRequest)
+		return
+	}
+	if manifest.Telemetry.Status == "" {
+		manifest.Telemetry.Status = "HEALTHY"
+	}
+	manifest.Telemetry.LastHeartbeatUnix = time.Now().Unix()
+
+	// Register with Topology registry if registrable
+	if reg, ok := s.registry.(interface {
+		RegisterArm(*protocol.ArmManifest) error
+		DeregisterArm(string) error
+	}); ok {
+		_ = reg.DeregisterArm(manifest.ArmID)
+		_ = reg.RegisterArm(&manifest)
+	}
+
+	// Wire HTTP proxy forwarder on the bus for external endpoints
+	if manifest.Endpoint != "" {
+		if subBus, ok := s.bus.(interface {
+			Subscribe(string, bus.MessageHandler)
+		}); ok {
+			endpoint := manifest.Endpoint
+			for _, cap := range manifest.CapabilityTags {
+				subBus.Subscribe(cap, func(ctx context.Context, env *protocol.NervousEnvelope) (*protocol.StepResult, error) {
+					bodyBytes, _ := json.Marshal(env)
+					targetURL := strings.TrimRight(endpoint, "/") + "/api/v1/dispatch"
+					req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(bodyBytes))
+					if err != nil {
+						return nil, err
+					}
+					req.Header.Set("Content-Type", "application/json")
+					resp, err := http.DefaultClient.Do(req)
+					if err != nil {
+						return nil, fmt.Errorf("failed to dispatch to arm %s: %w", endpoint, err)
+					}
+					defer resp.Body.Close()
+					if resp.StatusCode != http.StatusOK {
+						var errBody map[string]any
+						_ = json.NewDecoder(resp.Body).Decode(&errBody)
+						errMsg := fmt.Sprintf("arm returned HTTP %d", resp.StatusCode)
+						if e, ok := errBody["error"].(string); ok && e != "" {
+							errMsg += ": " + e
+						}
+						return nil, fmt.Errorf("%s", errMsg)
+					}
+					var res struct {
+						Status     string               `json:"status"`
+						StepResult *protocol.StepResult `json:"step_result"`
+						Output     any                  `json:"output"`
+						Error      string               `json:"error"`
+					}
+					if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+						return nil, err
+					}
+					if res.StepResult != nil {
+						return res.StepResult, nil
+					}
+					outMsg, _ := json.Marshal(res.Output)
+					return &protocol.StepResult{
+						Status:        "SUCCESS",
+						OutputMessage: string(outMsg),
+					}, nil
+				})
+			}
+		}
+	}
+
+	skillsInfo := ""
+	if len(manifest.Skills) > 0 {
+		skillsInfo = fmt.Sprintf(", %d registered skills", len(manifest.Skills))
+	}
+	s.BroadcastEvent(SystemEvent{
+		Timestamp: time.Now(),
+		Type:      "ARM_REGISTERED",
+		Source:    manifest.ArmID,
+		Target:    strings.Join(manifest.CapabilityTags, ","),
+		Details:   fmt.Sprintf("Arm %s online with capabilities %v%s (Endpoint: %s)", manifest.ArmID, manifest.CapabilityTags, skillsInfo, manifest.Endpoint),
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"status": "REGISTERED", "arm_id": manifest.ArmID})
+}
+
+func (s *HTTPServer) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var hb struct {
+		ArmID      string `json:"arm_id"`
+		Status     string `json:"status"`
+		QueueDepth int    `json:"queue_depth"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&hb); err != nil || hb.ArmID == "" {
+		http.Error(w, "invalid heartbeat", http.StatusBadRequest)
+		return
+	}
+	status := hb.Status
+	if status == "" {
+		status = "HEALTHY"
+	}
+	if reg, ok := s.registry.(interface {
+		Heartbeat(string, int, string) error
+	}); ok {
+		_ = reg.Heartbeat(hb.ArmID, hb.QueueDepth, status)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ACK", "arm_id": hb.ArmID})
+}
+
+func (s *HTTPServer) handleChat(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Message string `json:"message"`
+		Prompt  string `json:"prompt"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	userText := strings.TrimSpace(req.Message)
+	if userText == "" {
+		userText = strings.TrimSpace(req.Prompt)
+	}
+	if userText == "" {
+		http.Error(w, "message or prompt is required", http.StatusBadRequest)
+		return
+	}
+
+	targetCap := "distill-telemetry"
+	params := map[string]any{}
+	textLower := strings.ToLower(userText)
+
+	if strings.Contains(textLower, "weather") || strings.Contains(textLower, "temp") {
+		targetCap = "get_current_temperature"
+		loc := ""
+		unit := "c"
+
+		// Dynamic entity extraction: strip conversational prefixes and suffixes
+		cleaned := userText
+		prefixes := []string{
+			"what is the weather in", "what is the temperature in", "weather in", "weather for",
+			"temperature in", "temperature of", "check weather for", "check weather in",
+			"tell me the weather in", "get weather for", "get weather in", "weather", "temp",
+		}
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(strings.ToLower(cleaned), prefix) {
+				cleaned = strings.TrimSpace(cleaned[len(prefix):])
+				break
+			}
+		}
+		suffixes := []string{
+			"weather", "temperature", "forecast", "temp",
+		}
+		for _, suffix := range suffixes {
+			if strings.HasSuffix(strings.ToLower(cleaned), suffix) {
+				cleaned = strings.TrimSpace(cleaned[:len(cleaned)-len(suffix)])
+				break
+			}
+		}
+		cleaned = strings.TrimSpace(cleaned)
+
+		if cleaned == "" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"role":  "assistant",
+				"reply": "No specific query location detected. Which city or region would you like to check? (e.g. 'Washington', 'Beijing', 'London', or 'Paris').",
+			})
+			return
+		}
+
+		// The location entity is passed directly to the arm, where the model-driven
+		// Geographic Disambiguation skill dynamically resolves it using world knowledge.
+		loc = cleaned
+
+		if strings.Contains(textLower, "dual") {
+			unit = "d"
+		} else if strings.Contains(textLower, "fahrenheit") || strings.Contains(textLower, "°f") {
+			unit = "f"
+		}
+		params["location"] = loc
+		params["unit"] = unit
+	} else if strings.Contains(textLower, "telemetry") {
+		targetCap = "distill-telemetry"
+		params["metric"] = "latency"
+		params["window"] = "5m"
+	} else {
+		// If capability tag is typed bare
+		targetCap = userText
+	}
+
+	env := protocol.NewEnvelope(
+		fmt.Sprintf("env-chat-%d", time.Now().UnixNano()),
+		fmt.Sprintf("trace-chat-%d", time.Now().UnixNano()),
+		fmt.Sprintf("sess-chat-%d", time.Now().UnixNano()),
+		protocol.PlaneVertical,
+		protocol.MsgTaskDispatch,
+		"octo-brain-chat",
+	)
+	env.TargetCapability = targetCap
+	env.Parameters = params
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	result, err := s.bus.Publish(ctx, env)
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		replyText := fmt.Sprintf("Task dispatch failed: %v\n(Hint: Ensure an arm subscribing to '%s' capability is running and registered)", err, targetCap)
+		if strings.Contains(err.Error(), "unreachable") || strings.Contains(err.Error(), "ConnectionError") {
+			replyText = fmt.Sprintf("Meteorological query failed (external network unreachable):\n%v\n\nNote: Adhering to zero-trust principles, fake dummy fallbacks are rejected. For offline testing, set OCTPEX_ALLOW_OFFLINE_SIMULATION=1 to activate explicit offline simulation mode.", err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"role":  "assistant",
+			"reply": replyText,
+			"error": err.Error(),
+		})
+		return
+	}
+
+	replyText := fmt.Sprintf("Execution succeeded (Status: %s). Output:\n%s", result.Status, result.OutputMessage)
+	if targetCap == "get_current_temperature" {
+		var wData struct {
+			Location           string  `json:"location"`
+			QueryTarget        string  `json:"query_target"`
+			CanonicalName      string  `json:"canonical_name"`
+			ProvinceOrState    string  `json:"province_or_state"`
+			Country            string  `json:"country"`
+			DisambiguationNote string  `json:"disambiguation_note"`
+			Display            string  `json:"display"`
+			Condition          string  `json:"condition"`
+			Humidity           int     `json:"humidity"`
+			WindKMH            float64 `json:"wind_kmh"`
+			IsSimulated        bool    `json:"is_simulated"`
+			DataSource         string  `json:"data_source"`
+		}
+		if json.Unmarshal([]byte(result.OutputMessage), &wData) == nil && (wData.Location != "" || wData.CanonicalName != "") {
+			targetName := wData.Location
+			if wData.CanonicalName != "" {
+				targetName = wData.CanonicalName
+			}
+			adminHierarchy := ""
+			if wData.ProvinceOrState != "" && wData.Country != "" {
+				adminHierarchy = fmt.Sprintf("\n- Administrative Hierarchy: %s | Country: %s", wData.ProvinceOrState, wData.Country)
+			}
+			disambig := ""
+			if wData.DisambiguationNote != "" {
+				disambig = fmt.Sprintf("\n- Normalization & Disambiguation: %s", wData.DisambiguationNote)
+			}
+			simNote := ""
+			if wData.IsSimulated {
+				simNote = "\n- Data Origin: [Offline Simulation - No External Connectivity]"
+			}
+			replyText = fmt.Sprintf("Current meteorological observations for [%s]:%s%s\n- Temperature: %s\n- Condition: %s\n- Relative Humidity: %d%% | Wind Speed: %.1f km/h%s",
+				targetName, adminHierarchy, disambig, wData.Display, wData.Condition, wData.Humidity, wData.WindKMH, simNote)
+		}
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"role":                  "assistant",
+		"reply":                 replyText,
+		"dispatched_capability": targetCap,
+		"envelope_id":           env.EnvelopeID,
+		"step_result":           result,
+	})
+}
+
 func (s *HTTPServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(dashboardHTML))
@@ -286,6 +586,8 @@ const dashboardHTML = `<!DOCTYPE html>
       --green: #3fb950;
       --purple: #bc8cff;
       --orange: #f0883e;
+      --btn-blue: #238636;
+      --btn-hover: #2ea043;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     body { background-color: var(--bg); color: var(--text); padding: 24px; }
@@ -302,23 +604,42 @@ const dashboardHTML = `<!DOCTYPE html>
     .tier-title { font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
     .box { border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 16px; background: #0d1117; }
     .arms-container { display: flex; gap: 16px; overflow-x: auto; padding-top: 8px; }
-    .arm-card { flex: 1; min-width: 240px; border: 1px solid var(--border); border-radius: 6px; padding: 12px; background: #161b22; }
-    .arm-name { font-weight: 600; color: #fff; font-size: 14px; display: flex; justify-content: space-between; }
-    .arm-status { font-size: 11px; color: var(--green); font-weight: 600; }
-    .tags { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
-    .tag { font-size: 11px; background: #21262d; border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; color: #8b949e; }
-    
+    .arm-card { flex: 1; min-width: 280px; border: 1px solid var(--border); border-radius: 6px; padding: 14px; background: #161b22; display: flex; flex-direction: column; gap: 8px; }
+    .arm-header { display: flex; justify-content: space-between; align-items: center; }
+    .arm-name { font-weight: 600; color: #fff; font-size: 14px; }
+    .arm-status { font-size: 11px; color: var(--green); font-weight: 600; display: flex; align-items: center; gap: 4px; }
+    .arm-status::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+    .arm-role { font-size: 12px; color: #8b949e; }
+    .arm-endpoint { font-size: 11px; color: var(--purple); font-family: monospace; }
+    .tags { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+    .tag { font-size: 11px; background: #21262d; border: 1px solid var(--border); padding: 2px 8px; border-radius: 4px; color: var(--accent); font-family: monospace; }
+    .empty-arms { color: #8b949e; font-size: 13px; font-style: italic; padding: 16px; border: 1px dashed var(--border); border-radius: 6px; width: 100%; text-align: center; }
+
+    /* Biomimetic Dialogue Panel */
+    .chat-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+    .chat-history { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; height: 320px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .msg { max-width: 85%; padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .msg-user { align-self: flex-end; background: #1f6feb; color: #fff; border-bottom-right-radius: 2px; }
+    .msg-assistant { align-self: flex-start; background: #21262d; border: 1px solid var(--border); color: #c9d1d9; border-bottom-left-radius: 2px; }
+    .msg-meta { font-size: 11px; color: #8b949e; margin-top: 4px; }
+    .chat-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .chip { background: #21262d; border: 1px solid var(--border); color: #8b949e; font-size: 12px; padding: 4px 10px; border-radius: 14px; cursor: pointer; transition: all 0.2s; }
+    .chip:hover { color: #fff; border-color: var(--accent); background: #30363d; }
+    .chat-input-bar { display: flex; gap: 8px; margin-top: 12px; }
+    input[type="text"] { flex: 1; background: #0d1117; border: 1px solid var(--border); color: #fff; padding: 10px 14px; border-radius: 6px; font-size: 13px; outline: none; }
+    input[type="text"]:focus { border-color: var(--accent); }
+    button { background: var(--btn-blue); border: none; color: #fff; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; transition: background 0.2s; }
+    button:hover { background: var(--btn-hover); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+
     .dispatch-box { display: flex; gap: 8px; margin-top: 16px; }
-    input { flex: 1; background: #0d1117; border: 1px solid var(--border); color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
-    button { background: #238636; border: none; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
-    button:hover { background: #2ea043; }
     #output { margin-top: 12px; font-family: monospace; font-size: 12px; color: var(--accent); white-space: pre-wrap; background: #0d1117; padding: 12px; border-radius: 6px; border: 1px solid var(--border); display: none; }
   </style>
 </head>
 <body>
   <header>
     <h1>Octpex Biomimetic Agent Nervous System <span class="badge">LIVE KERNEL</span></h1>
-    <div style="font-size: 13px; color: #8b949e;">Runtime topology</div>
+    <div style="font-size: 13px; color: #8b949e;">Multi-Tier Autonomous Runtime Topology</div>
   </header>
 
   <div class="grid">
@@ -344,6 +665,31 @@ const dashboardHTML = `<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- Biomimetic Dialogue Panel (Chat Box) -->
+  <div class="chat-panel">
+    <div class="tier-title" style="display: flex; justify-content: space-between; align-items: center;">
+      <span>Interactive Biomimetic Dialogue / Task Delegation</span>
+      <span style="font-size: 12px; color: #8b949e; text-transform: none; font-weight: normal;">Route: POST /api/v1/chat</span>
+    </div>
+    <div class="chat-history" id="chat-history">
+      <div class="msg msg-assistant">
+        Hello, I am Octpex Distributed Agent.
+        <div class="msg-meta">System Ready • Central Brain Listening</div>
+      </div>
+    </div>
+    <div class="chat-chips">
+      <span class="chip" onclick="fillAndSend('Weather in Beijing')">Beijing Temperature</span>
+      <span class="chip" onclick="fillAndSend('Weather in Tokyo in dual unit')">Tokyo Weather (Dual)</span>
+      <span class="chip" onclick="fillAndSend('Weather in Paris')">Paris Weather</span>
+      <span class="chip" onclick="fillAndSend('Weather in Washington')">Washington Weather</span>
+      <span class="chip" onclick="fillAndSend('distill-telemetry')">Telemetry (distill-telemetry)</span>
+    </div>
+    <div class="chat-input-bar">
+      <input type="text" id="chat-input" placeholder="Enter natural language command (e.g. 'Weather in Beijing' or 'distill-telemetry')..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+      <button id="chat-send-btn" onclick="sendChatMessage()">Send</button>
+    </div>
+  </div>
+
   <div class="topology">
     <div class="tier-title">1. OCTO-BRAIN (Central Frontier Reasoning & Global Orchestrator)</div>
     <div class="box">
@@ -357,14 +703,14 @@ const dashboardHTML = `<!DOCTYPE html>
 
     <div class="tier-title">3. OCTO-ARMS MESH (Horizontal Tentacles & Edge Ganglia)</div>
     <div class="arms-container" id="arms-mesh">
-
+      <div class="empty-arms">Discovering registered arms...</div>
     </div>
 
     <div style="margin-top: 24px;">
-      <div class="tier-title">Dispatch Test Task to Nervous Bus</div>
+      <div class="tier-title">Dispatch Raw Envelope to Nervous Bus</div>
       <div class="dispatch-box">
-        <input type="text" id="target-cap" value="distill-telemetry" placeholder="Target Capability (e.g. distill-telemetry)">
-        <button onclick="dispatchTask()">Dispatch Envelope</button>
+        <input type="text" id="target-cap" value="get_current_temperature" placeholder="Target Capability (e.g. get_current_temperature)">
+        <button onclick="dispatchTask()">Dispatch Raw Envelope</button>
       </div>
       <div id="output"></div>
     </div>
@@ -372,7 +718,7 @@ const dashboardHTML = `<!DOCTYPE html>
     <div style="margin-top: 24px;">
       <div class="tier-title" style="display: flex; justify-content: space-between; align-items: center;">
         <span>Live Nervous Pulse Stream (SSE: /api/v1/events)</span>
-        <span style="font-size: 11px; color: var(--green); text-transform: none; font-weight: normal;">SSE</span>
+        <span style="font-size: 11px; color: var(--green); text-transform: none; font-weight: normal;">SSE STREAM</span>
       </div>
       <div id="event-feed" style="background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 12px; height: 160px; overflow-y: auto; font-family: monospace; font-size: 11px; display: flex; flex-direction: column; gap: 4px;">
         <div style="color: #8b949e;">[System] Listening for real-time nervous envelope pulses...</div>
@@ -403,6 +749,7 @@ const dashboardHTML = `<!DOCTYPE html>
       console.log('SSE connection error', e);
     }
 
+    // 2. Topology and FinOps Polling
     async function refreshStats() {
       try {
         const topoRes = await fetch('/api/v1/topology');
@@ -410,12 +757,53 @@ const dashboardHTML = `<!DOCTYPE html>
         document.getElementById('val-arms').innerText = topo.arm_count ?? 0;
 
         const mesh = document.getElementById('arms-mesh');
-        mesh.replaceChildren(...(topo.active_arms || []).map(arm => {
-          const card = document.createElement('div');
-          card.className = 'arm-card';
-          card.textContent = arm.arm_id + ' / ' + (arm.capability_tags || []).join(', ');
-          return card;
-        }));
+        if (!topo.active_arms || topo.active_arms.length === 0) {
+          mesh.innerHTML = '<div class="empty-arms">No external arms registered. Run <code>python examples/weather_mcp_arm/server.py 8081</code> in a terminal to register.</div>';
+        } else {
+          mesh.replaceChildren(...topo.active_arms.map(arm => {
+            const card = document.createElement('div');
+            card.className = 'arm-card';
+            
+            const header = document.createElement('div');
+            header.className = 'arm-header';
+            header.innerHTML = '<span class="arm-name">' + (arm.arm_id || 'Unknown Arm') + '</span><span class="arm-status">' + (arm.telemetry && arm.telemetry.status ? arm.telemetry.status : 'HEALTHY') + '</span>';
+            
+            const role = document.createElement('div');
+            role.className = 'arm-role';
+            role.innerText = arm.role_name || 'Edge Ganglion Worker';
+
+            const ep = document.createElement('div');
+            ep.className = 'arm-endpoint';
+            ep.innerText = 'Endpoint: ' + (arm.endpoint || 'Internal Bus');
+
+            const tags = document.createElement('div');
+            tags.className = 'tags';
+            (arm.capability_tags || []).forEach(t => {
+              const tag = document.createElement('span');
+              tag.className = 'tag';
+              tag.innerText = t;
+              tags.appendChild(tag);
+            });
+
+            if (arm.skills && arm.skills.length > 0) {
+              arm.skills.forEach(sk => {
+                const sTag = document.createElement('span');
+                sTag.className = 'tag';
+                sTag.style.borderColor = 'var(--purple)';
+                sTag.style.color = 'var(--purple)';
+                sTag.innerText = 'skill: ' + (sk.name || sk.id);
+                tags.appendChild(sTag);
+              });
+            }
+
+            card.appendChild(header);
+            card.appendChild(role);
+            card.appendChild(ep);
+            card.appendChild(tags);
+            return card;
+          }));
+        }
+
         const finRes = await fetch('/api/v1/finops');
         const fin = await finRes.json();
         if (typeof fin.total_tasks === "number") {
@@ -430,6 +818,58 @@ const dashboardHTML = `<!DOCTYPE html>
     refreshStats();
     setInterval(refreshStats, 3000);
 
+    // 3. Interactive Dialogue (Chat) handler
+    function fillAndSend(text) {
+      document.getElementById('chat-input').value = text;
+      sendChatMessage();
+    }
+
+    async function sendChatMessage() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const history = document.getElementById('chat-history');
+      const sendBtn = document.getElementById('chat-send-btn');
+
+      // Append user bubble
+      const userMsg = document.createElement('div');
+      userMsg.className = 'msg msg-user';
+      userMsg.textContent = text;
+      history.appendChild(userMsg);
+      input.value = '';
+      sendBtn.disabled = true;
+      sendBtn.innerText = 'Executing...';
+      history.scrollTop = history.scrollHeight;
+
+      // Append temporary loading assistant bubble
+      const assistantMsg = document.createElement('div');
+      assistantMsg.className = 'msg msg-assistant';
+      assistantMsg.innerHTML = '<span style="color:#8b949e;">Task dispatching over nervous bus and executing on arm...</span>';
+      history.appendChild(assistantMsg);
+      history.scrollTop = history.scrollHeight;
+
+      try {
+        const res = await fetch('/api/v1/chat', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        const reply = data.reply || (data.step_result ? data.step_result.output_message : JSON.stringify(data));
+        const meta = data.dispatched_capability ? ('Dispatched to: ' + data.dispatched_capability + ' (Envelope: ' + (data.envelope_id || '') + ')') : '';
+
+        assistantMsg.innerHTML = reply.replace(/\n/g, '<br>') + (meta ? '<div class="msg-meta">' + meta + '</div>' : '');
+      } catch (err) {
+        assistantMsg.innerHTML = '<span style="color:#f85149;">Request failed: ' + err + '</span>';
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerText = 'Send';
+        history.scrollTop = history.scrollHeight;
+      }
+    }
+
+    // 4. Raw Envelope Dispatcher
     async function dispatchTask() {
       const cap = document.getElementById('target-cap').value;
       const out = document.getElementById('output');
@@ -443,7 +883,7 @@ const dashboardHTML = `<!DOCTYPE html>
           body: JSON.stringify({
             plane: 'VERTICAL',
             target_capability: cap,
-            parameters: { log: 'INFO ready\nWARN queue delay\nWARN queue delay' }
+            parameters: { location: 'Beijing', unit: 'c', log: 'INFO ready\nWARN queue delay' }
           })
         });
         const data = await res.json();

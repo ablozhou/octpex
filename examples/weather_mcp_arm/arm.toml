@@ -1,0 +1,27 @@
+# Octo-Arm Manifest & Local Ganglion Configuration
+[arm]
+id = "arm-weather-mcp"
+role_name = "Global Meteorological Observation Worker"
+runtime_adapter = "python"
+hardware_tier = "TIER_0_CPU_EDGE"
+endpoint = "http://127.0.0.1:8081"
+
+[[capabilities]]
+name = "get_current_temperature"
+description = "Gets live current temperature and meteorological conditions for any global city in the world."
+required_parameters = ["location"]
+optional_parameters = ["unit"]
+
+# Local Ganglion SLM Configuration (Ollama / edge reflex model)
+[slm_profile]
+provider = "ollama"
+model = "qwen3.5:4b"
+endpoint = "http://localhost:11434"
+safe_context_limit = 4096
+temperature = 0.1
+
+# Objective Gate 2 validation & local reflex policies
+[escalation_gates]
+max_reflex_retries = 3
+min_system1_confidence = 0.75
+required_output_fields = ["location", "temperature", "unit", "display", "condition"]

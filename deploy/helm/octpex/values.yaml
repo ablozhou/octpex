@@ -70,3 +70,109 @@ config:
     memoryLimitMB: 512
     timeoutSeconds: 10
     networkIsolated: true
+
+# ==============================================================================
+# Multi-LLM Frontier Provider Pool (Brain Strategic Planning & Arbitration)
+# ==============================================================================
+llm_providers:
+  default_provider: "gemini-flash"
+  providers:
+    gemini-flash:
+      provider: "gemini"
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai"
+      model: "gemini-1.5-flash"
+      temperature: 0.1
+      purpose: "Fast intention extraction & general task orchestration"
+    gpt-4o:
+      provider: "openai"
+      baseURL: "https://api.openai.com/v1"
+      model: "gpt-4o"
+      temperature: 0.1
+      purpose: "Complex multi-agent arbitration & dynamic tool synthesis"
+    deepseek-v3:
+      provider: "deepseek"
+      baseURL: "https://api.deepseek.com/v1"
+      model: "deepseek-chat"
+      temperature: 0.2
+      purpose: "High-throughput data summarization & cost-effective batch analysis"
+
+# ==============================================================================
+# Edge SLM Catalog (Injected as Sidecars into Octo-Arm Worker Pods)
+# ==============================================================================
+slm_catalog:
+  # Global default SLM fallback: automatically injected if an arm doesn't specify slm_profile
+  default_slm: "qwen2.5-1.5b"
+
+  profiles:
+    qwen2.5-0.5b:
+      engine: "ollama"
+      image: "octpex/slm-runtime:qwen2.5-0.5b"
+      port: 11434
+      purpose: "Ultra-low latency log deduplication & field sanitization"
+      resources:
+        requests: { cpu: "200m", memory: "512Mi" }
+        limits: { cpu: "1000m", memory: "1Gi" }
+
+    qwen2.5-1.5b:
+      engine: "ollama"
+      image: "octpex/slm-runtime:qwen2.5-1.5b"
+      port: 11434
+      purpose: "General-purpose edge reflex & Gate 2 self-repair (Platform Default)"
+      resources:
+        requests: { cpu: "500m", memory: "1.5Gi" }
+        limits: { cpu: "2000m", memory: "3Gi" }
+
+    qwen2.5-coder-1.5b:
+      engine: "ollama"
+      image: "octpex/slm-runtime:qwen2.5-coder-1.5b"
+      port: 11434
+      purpose: "Automated git patch repair & unit test self-healing"
+      resources:
+        requests: { cpu: "1000m", memory: "2Gi" }
+        limits: { cpu: "4000m", memory: "4Gi" }
+
+    phi-3.5-mini:
+      engine: "ollama"
+      image: "octpex/slm-runtime:phi-3.5-mini"
+      port: 11434
+      purpose: "Complex multi-source reasoning & semantic data extraction"
+      resources:
+        requests: { cpu: "1000m", memory: "3Gi" }
+        limits: { cpu: "4000m", memory: "6Gi" }
+
+# ==============================================================================
+# Octo-Arm Workload Declarations (Sidecar Auto-Injection)
+# ==============================================================================
+arms:
+  # Arm 1: Explicitly assigned specialized Coder SLM Sidecar
+  code-patcher:
+    enabled: true
+    replicas: 2
+    slm_profile: "qwen2.5-coder-1.5b"
+    worker_image: "octpex/kernel:0.5.0"
+    capability_tags: ["git_patch_repair", "unit_test_fix"]
+    resources:
+      requests: { cpu: "200m", memory: "256Mi" }
+      limits: { cpu: "500m", memory: "512Mi" }
+
+  # Arm 2: Unspecified slm_profile -> Automatically inherits default_slm (qwen2.5-1.5b)
+  weather-arm:
+    enabled: true
+    replicas: 1
+    # slm_profile omitted -> inherits .Values.slm_catalog.default_slm
+    worker_image: "octpex/kernel:0.5.0"
+    capability_tags: ["get_current_temperature"]
+    resources:
+      requests: { cpu: "100m", memory: "128Mi" }
+      limits: { cpu: "300m", memory: "256Mi" }
+
+  # Arm 3: Pure Level 0 deterministic arm (explicitly disables SLM sidecar)
+  metrics-filter:
+    enabled: true
+    replicas: 2
+    slm_profile: "none"
+    worker_image: "octpex/kernel:0.5.0"
+    capability_tags: ["filter_high_frequency_metrics"]
+    resources:
+      requests: { cpu: "100m", memory: "128Mi" }
+      limits: { cpu: "200m", memory: "256Mi" }

@@ -88,3 +88,92 @@ func TestShippedProfilesAndSections(t *testing.T) {
 		t.Fatalf("lost override: %+v", c)
 	}
 }
+
+func TestLoadConfig_MultiLLM_And_SLMCatalog(t *testing.T) {
+	tmpDir := t.TempDir()
+	confPath := filepath.Join(tmpDir, "k8s_cluster.yaml")
+	content := `
+profile: "cluster"
+llm_providers:
+  gemini-flash:
+    provider: "gemini"
+    model: "gemini-1.5-flash"
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+  gpt-4o:
+    provider: "openai"
+    model: "gpt-4o"
+slm_catalog:
+  default_slm: "qwen2.5-1.5b"
+  profiles:
+    qwen2.5-1.5b:
+      engine: "ollama"
+      image: "octpex/slm-runtime:qwen2.5-1.5b"
+      port: 11434
+    qwen2.5-coder-1.5b:
+      engine: "ollama"
+      image: "octpex/slm-runtime:qwen2.5-coder-1.5b"
+      port: 11434
+arms:
+  code-patcher:
+    replicas: 2
+    worker_image: "octpex/worker-code-patch:0.5.0"
+    slm_profile: "qwen2.5-coder-1.5b"
+    capability_tags: ["git_patch_repair"]
+  weather-arm:
+    replicas: 1
+    worker_image: "octpex/worker-weather:0.5.0"
+    capability_tags: ["get_current_temperature"]
+  metrics-filter:
+    replicas: 3
+    worker_image: "octpex/worker-metrics:0.5.0"
+    slm_profile: "none"
+`
+	if err := os.WriteFile(confPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := LoadConfig(confPath)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	// 1. Verify LLM providers
+	if len(cfg.LLMProviders) != 2 {
+		t.Fatalf("expected 2 LLM providers, got %d", len(cfg.LLMProviders))
+	}
+	if cfg.LLMProviders["gpt-4o"].Model != "gpt-4o" {
+		t.Fatalf("expected gpt-4o, got %s", cfg.LLMProviders["gpt-4o"].Model)
+	}
+
+	// 2. Verify SLM catalog default
+	if cfg.SLMCatalog.DefaultSLM != "qwen2.5-1.5b" {
+		t.Fatalf("expected default slm qwen2.5-1.5b, got %s", cfg.SLMCatalog.DefaultSLM)
+	}
+
+	// 3. Verify ResolveSLMForArm with explicit profile
+	codeSLM, err := cfg.ResolveSLMForArm("code-patcher")
+	if err != nil || codeSLM == nil {
+		t.Fatalf("expected code-patcher SLM profile, err: %v", err)
+	}
+	if codeSLM.Image != "octpex/slm-runtime:qwen2.5-coder-1.5b" {
+		t.Fatalf("expected coder image, got %s", codeSLM.Image)
+	}
+
+	// 4. Verify ResolveSLMForArm fallback to default_slm
+	weatherSLM, err := cfg.ResolveSLMForArm("weather-arm")
+	if err != nil || weatherSLM == nil {
+		t.Fatalf("expected weather-arm fallback SLM profile, err: %v", err)
+	}
+	if weatherSLM.Image != "octpex/slm-runtime:qwen2.5-1.5b" {
+		t.Fatalf("expected default image for weather arm, got %s", weatherSLM.Image)
+	}
+
+	// 5. Verify ResolveSLMForArm with "none"
+	metricsSLM, err := cfg.ResolveSLMForArm("metrics-filter")
+	if err != nil {
+		t.Fatalf("unexpected error for none SLM: %v", err)
+	}
+	if metricsSLM != nil {
+		t.Fatalf("expected nil SLM for none profile, got %+v", metricsSLM)
+	}
+}

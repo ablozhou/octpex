@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -61,6 +62,135 @@ type ArmTelemetry struct {
 	EscalatedTasks    int64  `json:"escalated_tasks"`
 }
 
+// SkillManifest represents a dynamic model-driven skill declared by an arm and registered to Octo-Brain.
+// Supports hierarchical taxonomy DAG categorization (multi-category assignment) and DAG dependencies.
+type SkillManifest struct {
+	ID             string         `json:"id"`
+	Name           string         `json:"name"`
+	Category       string         `json:"category,omitempty"`        // Primary category path, e.g. "geospatial/disambiguation"
+	Categories     []string       `json:"categories,omitempty"`      // Multi-parent DAG classification paths
+	ParentCategory string         `json:"parent_category,omitempty"` // Primary parent category, e.g. "geospatial"
+	Dependencies   []string       `json:"dependencies,omitempty"`    // Prerequisite upstream skills forming execution DAG
+	Description    string         `json:"description"`
+	SystemPrompt   string         `json:"system_prompt,omitempty"`
+	Version        string         `json:"version,omitempty"`
+	Parameters     map[string]any `json:"parameters,omitempty"`
+	Metadata       map[string]any `json:"metadata,omitempty"`
+}
+
+// SkillTreeNode represents a node in the hierarchical Skill Tree / DAG projection of the central Octo-Brain.
+type SkillTreeNode struct {
+	Path     string           `json:"path"`
+	Name     string           `json:"name"`
+	IsLeaf   bool             `json:"is_leaf"`
+	Skill    *SkillManifest   `json:"skill,omitempty"`
+	ArmID    string           `json:"arm_id,omitempty"`
+	Children []*SkillTreeNode `json:"children,omitempty"`
+}
+
+// BuildSkillTree aggregates registered arms and organizes their skills into a hierarchical taxonomy DAG projection.
+// A skill with multiple categories appears in each corresponding category branch (polyhierarchy DAG).
+func BuildSkillTree(arms []*ArmManifest) *SkillTreeNode {
+	root := &SkillTreeNode{
+		Path:     "root",
+		Name:     "Global Skill Catalog",
+		IsLeaf:   false,
+		Children: make([]*SkillTreeNode, 0),
+	}
+
+	for _, arm := range arms {
+		for i := range arm.Skills {
+			skill := &arm.Skills[i]
+
+			// Collect all categories (primary category + multi-parent categories)
+			catSet := make(map[string]bool)
+			if skill.Category != "" {
+				catSet[skill.Category] = true
+			}
+			for _, c := range skill.Categories {
+				if c != "" {
+					catSet[c] = true
+				}
+			}
+			if len(catSet) == 0 {
+				if skill.ParentCategory != "" {
+					catSet[skill.ParentCategory] = true
+				} else {
+					catSet["general"] = true
+				}
+			}
+
+			// Insert this skill into every category branch it belongs to
+			for cat := range catSet {
+				segments := strings.Split(strings.Trim(cat, "/"), "/")
+				curr := root
+				currentPath := ""
+
+				for _, seg := range segments {
+					if seg == "" {
+						continue
+					}
+					if currentPath == "" {
+						currentPath = seg
+					} else {
+						currentPath = currentPath + "/" + seg
+					}
+
+					var nextChild *SkillTreeNode
+					for _, ch := range curr.Children {
+						if ch.Name == seg && !ch.IsLeaf {
+							nextChild = ch
+							break
+						}
+					}
+					if nextChild == nil {
+						nextChild = &SkillTreeNode{
+							Path:     currentPath,
+							Name:     seg,
+							IsLeaf:   false,
+							Children: make([]*SkillTreeNode, 0),
+						}
+						curr.Children = append(curr.Children, nextChild)
+					}
+					curr = nextChild
+				}
+
+				// Add leaf node for this skill under its category
+				leafPath := currentPath + "/" + skill.ID
+				curr.Children = append(curr.Children, &SkillTreeNode{
+					Path:   leafPath,
+					Name:   skill.Name,
+					IsLeaf: true,
+					Skill:  skill,
+					ArmID:  arm.ArmID,
+				})
+			}
+		}
+	}
+
+	return root
+}
+
+// SkillGroupMember defines a member skill within a group and its DAG dependencies.
+type SkillGroupMember struct {
+	SkillID   string   `json:"skill_id"`
+	FileRef   string   `json:"file_ref,omitempty"`
+	Role      string   `json:"role,omitempty"`
+	DependsOn []string `json:"depends_on,omitempty"` // Upstream skill prerequisites within group
+	Order     int      `json:"order,omitempty"`
+}
+
+// SkillGroupManifest represents a metafile-defined bundle of related skills forming a DAG suite.
+type SkillGroupManifest struct {
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Category    string             `json:"category,omitempty"`
+	Description string             `json:"description"`
+	Version     string             `json:"version,omitempty"`
+	Skills      []SkillGroupMember `json:"skills"`
+	Metadata    map[string]any     `json:"metadata,omitempty"`
+}
+
 // ArmManifest is the registration card published by an Octo-Arm to the Basal Nerve Ring registry.
 type ArmManifest struct {
 	RequiredOutputFields  map[string]string     `json:"required_output_fields,omitempty"`
@@ -69,6 +199,9 @@ type ArmManifest struct {
 	RuntimeAdapter        string                `json:"runtime_adapter"`     // e.g. "go-native-fsm", "adk", "langgraph", "autogen", "ollama"
 	RoleName              string                `json:"role_name"`
 	CapabilityTags        []string              `json:"capability_tags"`
+	Skills                []SkillManifest       `json:"skills,omitempty"`
+	SkillGroups           []SkillGroupManifest  `json:"skill_groups,omitempty"`
+	ToolSchema            map[string]any        `json:"tool_schema,omitempty"`
 	RoleEmbedding         []float32             `json:"role_embedding,omitempty"`
 	Endpoint              string                `json:"endpoint"`
 	HardwareTier          string                `json:"hardware_tier,omitempty"`

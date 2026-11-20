@@ -32,6 +32,10 @@ class InMemorySubstrateClient(SubstrateClient):
     def put_artifact(self, uri: str, expected_version: int, data: bytes, ttl_seconds: int = 3600) -> int:
         if uri in self._store:
             curr_ver = self._store[uri]["version"]
+            if expected_version == -1:
+                next_ver = curr_ver + 1
+                self._store[uri] = {"data": data, "version": next_ver}
+                return next_ver
             if expected_version == 0:
                 raise ValueError(f"CAS conflict: artifact already exists: {uri}")
             if curr_ver != expected_version:
@@ -40,7 +44,7 @@ class InMemorySubstrateClient(SubstrateClient):
             self._store[uri] = {"data": data, "version": next_ver}
             return next_ver
         else:
-            if expected_version != 0:
+            if expected_version != 0 and expected_version != -1:
                 raise ValueError(f"CAS conflict: artifact does not exist: {uri}")
             self._store[uri] = {"data": data, "version": 1}
             return 1

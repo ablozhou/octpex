@@ -19,7 +19,7 @@ spec:
         - name: app-log-volume
           emptyDir: {}
       containers:
-        # 1. 模拟业务应用：向共享卷持续输出高频运行日志与重复 ERROR 异常
+        # 1. Simulated application: continuously outputs high-frequency logs and repeated errors to shared volume
         - name: log-producer
           image: busybox:1.36
           command: ["/bin/sh", "-c"]
@@ -47,7 +47,7 @@ spec:
               cpu: "100m"
               memory: "64Mi"
 
-        # 2. 边缘自治收集 Sidecar：监听共享日志目录，自动打包信封派发至 Octpex 集群去噪治理
+        # 2. Edge autonomous collector sidecar: watches shared log directory and dispatches envelopes to Octpex cluster
         - name: octpex-log-sidecar
           image: curlimages/curl:8.6.0
           command: ["/bin/sh", "-c"]
@@ -60,7 +60,7 @@ spec:
                   LOG_BATCH=$(tail -n 20 /var/log/mock-app/app.log)
                   TRACE_ID="trace-auto-$(date +%s)"
                   
-                  # 构造并向 Octpex 中枢分发治理信封
+                  # Construct and dispatch governance envelope to Octpex Brain
                   PAYLOAD=$(cat <<EOF
               {
                 "target_capability": "distill-telemetry",

@@ -1,0 +1,161 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: octpex-multi-model-config
+  namespace: octpex-system
+data:
+  models.yaml: |
+    # Multi-LLM Frontier Pool
+    llm_providers:
+      default_provider: "gemini-flash"
+      providers:
+        gemini-flash:
+          provider: "gemini"
+          base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+          model: "gemini-1.5-flash"
+        gpt-4o:
+          provider: "openai"
+          base_url: "https://api.openai.com/v1"
+          model: "gpt-4o"
+        deepseek-v3:
+          provider: "deepseek"
+          base_url: "https://api.deepseek.com/v1"
+          model: "deepseek-chat"
+    # Multi-SLM Catalog
+    slm_catalog:
+      default_slm: "qwen2.5-1.5b"
+      profiles:
+        qwen2.5-0.5b:
+          image: "octpex/slm-runtime:qwen2.5-0.5b"
+          port: 11434
+        qwen2.5-1.5b:
+          image: "octpex/slm-runtime:qwen2.5-1.5b"
+          port: 11434
+        qwen2.5-coder-1.5b:
+          image: "octpex/slm-runtime:qwen2.5-coder-1.5b"
+          port: 11434
+        phi-3.5-mini:
+          image: "octpex/slm-runtime:phi-3.5-mini"
+          port: 11434
+---
+# Arm Pod A: Explicitly assigned specialized Coder SLM Sidecar
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: octpex-arm-code-patcher
+  namespace: octpex-system
+  labels:
+    app.kubernetes.io/name: octpex-arm
+    octpex.io/arm-id: arm-code-patcher
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: octpex-arm
+      octpex.io/arm-id: arm-code-patcher
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: octpex-arm
+        octpex.io/arm-id: arm-code-patcher
+    spec:
+      containers:
+        # Container 1: Arm Worker Logic
+        - name: worker
+          image: octpex/kernel:0.5.0
+          args: ["worker", "-capability=git_patch_repair,unit_test_fix"]
+          env:
+            - name: OCTPEX_BRAIN_URL
+              value: "http://octpex-kernel:8080"
+            - name: OCTPEX_SLM_ENDPOINT
+              value: "http://127.0.0.1:11434"
+            - name: OCTPEX_SLM_PROFILE
+              value: "qwen2.5-coder-1.5b"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+        # Container 2: Dedicated Specialized SLM Sidecar (Qwen2.5-Coder:1.5B)
+        - name: slm-ganglion-sidecar
+          image: octpex/slm-runtime:qwen2.5-coder-1.5b
+          ports:
+            - containerPort: 11434
+              name: ollama-http
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "2Gi"
+            limits:
+              cpu: "4000m"
+              memory: "4Gi"
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+# Arm Pod B: SLM not specified -> Automatically inherits default_slm (qwen2.5-1.5b) Sidecar
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: octpex-arm-weather
+  namespace: octpex-system
+  labels:
+    app.kubernetes.io/name: octpex-arm
+    octpex.io/arm-id: arm-weather-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: octpex-arm
+      octpex.io/arm-id: arm-weather-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: octpex-arm
+        octpex.io/arm-id: arm-weather-worker
+    spec:
+      containers:
+        # Container 1: Weather Worker Logic
+        - name: worker
+          image: octpex/kernel:0.5.0
+          args: ["worker", "-capability=get_current_temperature"]
+          env:
+            - name: OCTPEX_BRAIN_URL
+              value: "http://octpex-kernel:8080"
+            - name: OCTPEX_SLM_ENDPOINT
+              value: "http://127.0.0.1:11434"
+            - name: OCTPEX_SLM_PROFILE
+              value: "qwen2.5-1.5b" # Inherited from default_slm
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+
+        # Container 2: Platform Default SLM Sidecar (Qwen2.5:1.5B)
+        - name: slm-ganglion-sidecar
+          image: octpex/slm-runtime:qwen2.5-1.5b
+          ports:
+            - containerPort: 11434
+              name: ollama-http
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1.5Gi"
+            limits:
+              cpu: "2000m"
+              memory: "3Gi"
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 15
+            periodSeconds: 20

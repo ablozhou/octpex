@@ -20,6 +20,7 @@ from .protocol import (
 from .substrate import SubstrateClient, InMemorySubstrateClient
 from .arm import OctoArmWorker, ArmConfig
 from .worker import OctoArmDaemon
+from .skill import Skill, SkillRegistry, parse_markdown_skill
 
 __version__ = "0.5.0"
 
@@ -41,4 +42,7 @@ __all__ = [
     "OctoArmWorker",
     "ArmConfig",
     "OctoArmDaemon",
+    "Skill",
+    "SkillRegistry",
+    "parse_markdown_skill",
 ]

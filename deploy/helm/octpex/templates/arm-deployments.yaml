@@ -1,0 +1,73 @@
+{{- range $armName, $armConfig := .Values.arms }}
+{{- if $armConfig.enabled }}
+{{- $slmProfileName := $armConfig.slm_profile | default $.Values.slm_catalog.default_slm }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "octpex.fullname" $ }}-arm-{{ $armName }}
+  labels:
+    {{- include "octpex.labels" $ | nindent 4 }}
+    octpex.io/arm-name: {{ $armName }}
+    octpex.io/component: octo-arm
+spec:
+  replicas: {{ $armConfig.replicas | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "octpex.selectorLabels" $ | nindent 6 }}
+      octpex.io/arm-name: {{ $armName }}
+  template:
+    metadata:
+      labels:
+        {{- include "octpex.selectorLabels" $ | nindent 8 }}
+        octpex.io/arm-name: {{ $armName }}
+        octpex.io/component: octo-arm
+    spec:
+      containers:
+        # Main Worker Container (Business Logic & Objective Gate 2 Reflex)
+        - name: worker
+          image: "{{ $armConfig.worker_image | default (printf "%s:%s" $.Values.image.repository ($.Values.image.tag | default $.Chart.AppVersion)) }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy | default "IfNotPresent" }}
+          env:
+            - name: OCTPEX_ARM_NAME
+              value: "{{ $armName }}"
+            - name: OCTPEX_BRAIN_URL
+              value: "http://{{ include "octpex.fullname" $ }}:{{ $.Values.service.port }}"
+            {{- if and $slmProfileName (ne $slmProfileName "none") }}
+            - name: OCTPEX_SLM_ENDPOINT
+              value: "http://127.0.0.1:11434"
+            - name: OCTPEX_SLM_PROFILE
+              value: "{{ $slmProfileName }}"
+            {{- end }}
+          resources:
+            {{- toYaml $armConfig.resources | nindent 12 }}
+
+        {{- if and $slmProfileName (ne $slmProfileName "none") }}
+        {{- $slmProf := index $.Values.slm_catalog.profiles $slmProfileName }}
+        {{- if $slmProf }}
+        # SLM Ganglion Sidecar Container (Dedicated Local Small Model Inference)
+        - name: slm-ganglion-sidecar
+          image: "{{ $slmProf.image }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: slm-http
+              containerPort: {{ $slmProf.port | default 11434 }}
+              protocol: TCP
+          resources:
+            {{- toYaml $slmProf.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: slm-http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: slm-http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+        {{- end }}
+        {{- end }}
+{{- end }}
+{{- end }}

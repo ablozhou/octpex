@@ -14,10 +14,78 @@ Octpex 通过 `configs/` 目录下的配置文件进行运行时拓扑控制：
 - **运行拓扑**：零外部集群依赖（Go 内存通道总线、内存原子 CAS 数据基质、进程内注册表）。
 - 默认遥测 Worker 使用原生 Go。嵌入 SLM 适配器的应用可另行配置 Ollama。
 - 动态脚本由显式配置的隔离执行器运行。Docker 示例使用 256 MiB 和 5 秒超时。
-- **启动指令**：
-  ```bash
-  go run cmd/octpex/main.go -profile=local
-  ```
+
+#### 1.1.0 编译与运行方式 (Local Binary / Makefile / CLI)
+
+在仓库根目录中，可以通过以下几种方式编译并执行 `octpex run`：
+
+1. **一键编译本地二进制（推荐）**：
+   ```bash
+   make build
+   ```
+   该指令会自动以 `CGO_ENABLED=0` 调用 Go 静态编译，将原生二进制输出到 `./bin/` 目录下（Windows 下为 `bin/octpex.exe`，Linux/WSL 下为 `bin/octpex`）。
+   若不使用 Makefile，直接使用原生 Go 命令编译时请指定 `CGO_ENABLED=0`（Octpex 为 100% 纯 Go，关闭 CGO 即可免除宿主机缺少 GCC 或 `stdlib.h` 库头文件的编译依赖）：
+   ```bash
+   CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/octpex ./cmd/octpex
+   ```
+
+2. **执行 `octpex run`**：
+   - **通过编译出的二进制执行**：
+     - Windows PowerShell：
+       ```powershell
+       .\bin\octpex.exe run -config configs/local.yaml
+       ```
+     - Linux / macOS / WSL：
+       ```bash
+       ./bin/octpex run -config configs/local.yaml
+       ```
+   - **通过 Makefile 一键运行（已参数化支持传入）**：
+     ```bash
+     # 1. 默认运行本地单机模式 (PROFILE=local PORT=8080)
+     make run
+
+     # 2. 运行分布式集群模式 (自动加载 configs/cluster.yaml)
+     make run PROFILE=cluster
+
+     # 3. 自定义端口运行 (例如改为 9090，或设为 0 禁用 HTTP 服务)
+     make run PORT=9090
+
+     # 4. 指定外部自定义配置文件或附加控制参数
+     make run CONFIG=my_custom.yaml ARGS="-worker=false"
+     ```
+   - **免编译直接运行（使用 Go 原生工具链）**：
+     ```bash
+     go run ./cmd/octpex run -config configs/local.yaml
+     ```
+   - **全局直接敲 `octpex run`**：
+     将仓库下的 `bin/` 路径添加到系统环境变量 `PATH` 中，即可在任意终端路径下直接执行 `octpex run`、`octpex eval` 或 `octpex bench`。
+
+#### 1.1.1 WSL2 专属优化：无缝访问 Windows 宿主机本地 Ollama
+
+在 Windows 工作站开发时，许多开发者习惯在 WSL2（Linux 子系统）内部运行 Octpex，而让 Ollama 运行在 Windows 宿主机上以直接利用 Windows 原生 GPU 驱动。在默认网络下，由于 WSL2 虚拟网卡与 Windows 隔离，经常出现无法连通 Windows 上 Ollama 的问题。
+
+> [!TIP]
+> **经过实测验证的最佳且唯一稳定的解决方案：开启 WSL2 镜像网络模式（Mirrored Networking）**
+> 
+> 1. **在 Windows 用户根目录配置 `.wslconfig`**：
+>    在 `C:\Users\<您的用户名>\.wslconfig`（若文件不存在则直接创建）中写入：
+>    ```ini
+>    [wsl2]
+>    networkingMode=mirrored
+>    ```
+> 2. **重启 WSL2**：
+>    在 Windows 宿主机终端执行：
+>    ```powershell
+>    wsl --shutdown
+>    ```
+> 3. **确保 Windows 上的 Ollama 监听全局端口**：
+>    在 Windows 系统环境变量中设置 `OLLAMA_HOST=0.0.0.0:11434`，并重启 Windows 版 Ollama。
+> 4. **直接以 `localhost` 访问，零网关配置**：
+>    在 WSL2 终端中直接访问 `http://localhost:11434` 即可直通 Windows 宿主机：
+>    ```bash
+>    curl http://localhost:11434/api/tags
+>    ```
+>    在 `configs/local.yaml` 中，`base_url` 直接保持默认的 `http://localhost:11434` 即可，完全不需要复杂的 IP 转换。
 
 ### 1.2 企业生产分布式集群模式 (`configs/cluster.yaml`)
 
@@ -65,11 +133,13 @@ Octpex 在 `deploy/` 目录下提供了生产级开箱即用的集群交付配�
   ```bash
   kubectl apply -f deploy/k8s/deployment.yaml
   ```
-- **企业级 Helm Chart 包 (`deploy/helm/octpex`)**：
+- **企业级 Helm Chart 包 (`deploy/helm/octpex`) 与 SLM Sidecar 伴生注入**：
   ```bash
   helm install octpex deploy/helm/octpex -n octpex-system --create-namespace
   ```
-  支持声明式配置副本数、弹性水平扩缩容 (HPA)、存活与就绪健康探针及自定义中间件连接。
+  * 支持在 `values.yaml` 中集中声明多 LLM 前沿大模型池（`llm_providers`）与多 SLM 小模型库（`slm_catalog`）；
+  * 腕足工作负载（`arms`）支持按需指定专用 SLM 伴生容器（如代码修复腕足挂载 `qwen2.5-coder-1.5b`），未指定时自动回退继承全局 `default_slm`（如 `qwen2.5-1.5b`）；
+  * 提供即用型演练清单：`kubectl apply -f deploy/k8s/arm-sidecar-demo.yaml`，观察双容器 Pod 本地 Localhost 零跳低延迟伴生形态。
 
 ---
 

@@ -18,16 +18,17 @@
 ## 目录
 
 1. [项目愿景与背景](#项目愿景与背景)
-2. [为什么是仿生架构？（章鱼拓扑启发）](#为什么是仿生架构章鱼拓扑启发)
-3. [核心痛点与破局之道](#核心痛点与破局之道)
-4. [系统整体拓扑架构](#系统整体拓扑架构)
-5. [三道门禁客观升级漏斗（零信任小模型自评）](#三道门禁客观升级漏斗零信任小模型自评)
-6. [跨层自进化：“大脑教腕足”与 Dynamic MCP](#跨层自进化大脑教腕足与-dynamic-mcp)
-7. [多智能体协作范式与多框架生态](#多智能体协作范式与多框架生态)
-8. [核心 SPI 契约规范](#核心-spi-契约规范)
-9. [安全治理与离线韧性](#安全治理与离线韧性)
-10. [双模部署支持与核心特性架构](#双模部署支持与核心特性架构)
-11. [文档索引](#文档索引)
+2. [5分钟极速上手 (Quick Start)](#5分钟极速上手-quick-start)
+3. [为什么是仿生架构？（章鱼拓扑启发）](#为什么是仿生架构章鱼拓扑启发)
+4. [核心痛点与破局之道](#核心痛点与破局之道)
+5. [系统整体拓扑架构](#系统整体拓扑架构)
+6. [三道门禁客观升级漏斗（零信任小模型自评）](#三道门禁客观升级漏斗零信任小模型自评)
+7. [跨层自进化：“大脑教腕足”与 Dynamic MCP](#跨层自进化大脑教腕足与-dynamic-mcp)
+8. [多智能体协作范式与多框架生态](#多智能体协作范式与多框架生态)
+9. [核心 SPI 契约规范](#核心-spi-契约规范)
+10. [安全治理与离线韧性](#安全治理与离线韧性)
+11. [双模部署支持与核心特性架构](#双模部署支持与核心特性架构)
+12. [文档索引](#文档索引)
 
 ---
 
@@ -37,6 +38,74 @@
 
 * **Octpex 是什么：** 一个领域无关的**分布式认知调度底座与运行时（Distributed Cognitive Fabric & Scheduling Runtime）**。它通过共享协调神经环（**Basal Nerve Ring**），在顶层中枢推理模型（**Octo-Brain**）的统筹下，调度海量搭载本地小模型（SLM, 0.5B–3B）的自主边缘执行节点（**Octo-Arms**）。
 * **Octpex 不是什么：** Octpex **不是**单机/单进程 Agent 编排 SDK（如 LangGraph、Google ADK 或 CrewAI），也**不是**底层容器隔离沙盒（如 AbloEx）。它充当连接异构智能体的**“分布式神经系统”**，跨节点路由协同任务，就地消化 70%–85% 的常规低阶推理，并将高危工具执行委托给可插拔安全沙盒。
+
+---
+
+## 5分钟极速上手 (Quick Start)
+
+三步体验 Octpex 仿生多智能体架构：在本地编译内核、启动中央大脑、挂载天气 MCP 腕足并执行实时调度测试。
+
+### 步骤 1：本地一键编译并启动中央大脑
+
+```bash
+# 1. 编译宿主机纯静态二进制 (CGO_ENABLED=0，输出到 ./bin/)
+make build
+
+# 2. 启动 Octpex 中央大脑守护进程 (默认本地单机模式，监听 8080 端口与 Web 看板)
+make run
+```
+
+> [!TIP]
+> 此时浏览器直接打开 **`http://localhost:8080`** 即可实时查看神经拓扑看板、活跃腕足状态与实时 FinOps 降本指标。
+
+### 步骤 2：启动天气 MCP 腕足 Worker (监听 8081 端口)
+
+在另一个终端中，启动由 `arm.yaml` 声明驱动的天气腕足服务：
+
+```bash
+python examples/weather_mcp_arm/server.py 8081
+```
+
+> [!NOTE]
+> 腕足启动后，其后台守护线程会自动向中央大脑 (`http://127.0.0.1:8080/api/v1/register`) 发起**自治自注册**，并以 5 秒间隔发送心跳保活。此时刷新 `http://localhost:8080` 看板，可在 **3. OCTO-ARMS MESH** 中看到 `arm-weather-mcp` 绿色在线卡片。
+
+### 步骤 3：体验仿生任务调度与交互对话
+
+#### 方式 A：8080 Web 控制台自然语言交互（最推荐）
+浏览器打开 **`http://localhost:8080`**，在页面上方的 **Interactive Biomimetic Dialogue** 面板中：
+* 直接点击预设胶囊（例如 `北京当前气温`、`东京天气 (双显)`、`巴黎天气`）或在输入框中键入自然语言指令后按回车；
+* 中央大脑将意图自动转换为垂直神经信封，通过神经母线垂直派发给天气腕足执行，并实时呈现格式化气象实况。
+
+#### 方式 B：通过中央大脑网关统一派发调度 (REST API / 8080 端口)
+中央大脑接收到神经信封后，自动在拓扑中匹配具有 `get_current_temperature` 能力的天气腕足并执行：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/dispatch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_capability": "get_current_temperature",
+    "parameters": {
+      "location": "Beijing",
+      "unit": "c"
+    }
+  }'
+```
+
+#### 方式 C：直接调用天气腕足服务 (8081 端口)
+```bash
+# 摄氏度模式
+curl -X POST http://localhost:8081/api/v1/dispatch \
+  -H "Content-Type: application/json" \
+  -d '{"target_capability": "get_current_temperature", "parameters": {"location": "Paris", "unit": "c"}}'
+
+# 双显模式 (华氏 + 摄氏)
+curl "http://localhost:8081/weather?location=Sydney&unit=dual"
+```
+
+#### 方式 D：运行单体腕足完整反射弧验证 (含 Gate 2 客观门禁拦截与本地 SLM 自愈)
+```bash
+python examples/weather_mcp_arm/main.py
+```
 
 ---
 

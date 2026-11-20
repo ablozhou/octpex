@@ -12,12 +12,92 @@ import (
 
 // Config represents the complete runtime configuration of Octpex.
 type Config struct {
-	Profile   string          `json:"profile"`
-	Brain     BrainConfig     `json:"brain"`
-	Ring      RingConfig      `json:"ring"`
-	Substrate SubstrateConfig `json:"substrate"`
-	Bus       BusConfig       `json:"bus"`
-	Sandbox   SandboxConfig   `json:"sandbox"`
+	Profile      string                       `json:"profile"`
+	Brain        BrainConfig                  `json:"brain"`
+	Ring         RingConfig                   `json:"ring"`
+	Substrate    SubstrateConfig              `json:"substrate"`
+	Bus          BusConfig                    `json:"bus"`
+	Sandbox      SandboxConfig                `json:"sandbox"`
+	LLMProviders map[string]LLMProviderConfig `json:"llm_providers,omitempty"`
+	SLMCatalog   SLMCatalogConfig             `json:"slm_catalog,omitempty"`
+	Arms         map[string]ArmWorkloadConfig `json:"arms,omitempty"`
+}
+
+// LLMProviderConfig defines credentials and parameters for a frontier LLM provider.
+type LLMProviderConfig struct {
+	Provider    string  `json:"provider"` // "openai", "anthropic", "gemini", "deepseek", etc.
+	BaseURL     string  `json:"base_url"`
+	APIKeyEnv   string  `json:"api_key_env"`
+	Model       string  `json:"model"`
+	Temperature float64 `json:"temperature"`
+	Purpose     string  `json:"purpose"`
+}
+
+// SLMProfileConfig defines local small model parameters for edge ganglion sidecars.
+type SLMProfileConfig struct {
+	Engine       string         `json:"engine"` // "ollama", "llama.cpp", "vllm"
+	Image        string         `json:"image"`
+	Model        string         `json:"model"`
+	Port         int            `json:"port"` // Default: 11434
+	ContextLimit int            `json:"context_limit"`
+	Resources    map[string]any `json:"resources,omitempty"`
+	Purpose      string         `json:"purpose"`
+}
+
+// SLMCatalogConfig manages the pool of local SLM profiles and sets the default fallback.
+type SLMCatalogConfig struct {
+	DefaultSLM string                      `json:"default_slm"`
+	Profiles   map[string]SLMProfileConfig `json:"profiles"`
+}
+
+// ArmWorkloadConfig defines an edge Octo-Arm worker deployment in Kubernetes or local daemon.
+type ArmWorkloadConfig struct {
+	Replicas       int      `json:"replicas"`
+	WorkerImage    string   `json:"worker_image"`
+	SLMProfile     string   `json:"slm_profile"` // e.g. "qwen2.5-coder-1.5b", empty for default_slm, or "none"
+	CapabilityTags []string `json:"capability_tags"`
+	HardwareTier   string   `json:"hardware_tier"`
+	Endpoint       string   `json:"endpoint"`
+}
+
+// ResolveSLMForArm returns the SLMProfileConfig assigned to a given arm workload.
+// If the arm explicitly specifies an SLM profile, it resolves it from the catalog.
+// If the arm specifies "none", it returns nil (pure Level 0 deterministic arm).
+// If the arm leaves slm_profile empty, it automatically falls back to default_slm.
+func (c *Config) ResolveSLMForArm(armName string) (*SLMProfileConfig, error) {
+	arm, exists := c.Arms[armName]
+	if !exists {
+		// Arm not declared by name; return default SLM if catalog exists
+		if c.SLMCatalog.DefaultSLM != "" {
+			if prof, ok := c.SLMCatalog.Profiles[c.SLMCatalog.DefaultSLM]; ok {
+				return &prof, nil
+			}
+		}
+		return nil, nil
+	}
+
+	if arm.SLMProfile == "none" {
+		return nil, nil
+	}
+
+	targetProfile := arm.SLMProfile
+	if targetProfile == "" {
+		targetProfile = c.SLMCatalog.DefaultSLM
+	}
+
+	if targetProfile == "" {
+		return nil, nil
+	}
+
+	prof, ok := c.SLMCatalog.Profiles[targetProfile]
+	if !ok {
+		return nil, fmt.Errorf("arm %q references unknown SLM profile %q in slm_catalog", armName, targetProfile)
+	}
+
+	if prof.Port <= 0 {
+		prof.Port = 11434
+	}
+	return &prof, nil
 }
 
 type BrainConfig struct {
@@ -193,6 +273,9 @@ func LoadConfig(path string) (*Config, error) {
 			SandboxConfig
 			Milliseconds *int64 `json:"timeout_ms"`
 		}
+		LLMProviders map[string]LLMProviderConfig `json:"llm_providers"`
+		SLMCatalog   *SLMCatalogConfig            `json:"slm_catalog"`
+		Arms         map[string]ArmWorkloadConfig `json:"arms"`
 	}
 	file.Brain.BrainConfig = cfg.Brain
 	file.Brain.EscalationTimeoutMs /= time.Millisecond
@@ -251,6 +334,15 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if file.Sandbox.Milliseconds != nil {
 		cfg.Sandbox.Timeout = time.Duration(*file.Sandbox.Milliseconds) * time.Millisecond
+	}
+	if file.LLMProviders != nil {
+		cfg.LLMProviders = file.LLMProviders
+	}
+	if file.SLMCatalog != nil {
+		cfg.SLMCatalog = *file.SLMCatalog
+	}
+	if file.Arms != nil {
+		cfg.Arms = file.Arms
 	}
 	if cfg.Bus.BufferSize <= 0 || cfg.Sandbox.MemoryLimitMB <= 0 || cfg.Sandbox.Timeout <= 0 || cfg.Substrate.DefaultTTL <= 0 || cfg.Brain.EscalationTimeoutMs <= 0 {
 		return nil, fmt.Errorf("invalid buffer size, quota or timeout in %s", path)

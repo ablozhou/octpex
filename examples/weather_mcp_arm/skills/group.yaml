@@ -1,0 +1,17 @@
+id: "weather_observation_suite"
+name: "Weather Observation & Meteorological Intelligence Suite"
+category: "geospatial/weather"
+description: "Comprehensive skill suite for geographic entity normalization, live meteorological telemetry fetching, and Gate 2 validation."
+version: "1.0.0"
+skills:
+  - id: "geo_entity_disambiguation"
+    ref: "geo_entity_disambiguation/SKILL.md"
+    role: "preprocessing_and_disambiguation"
+    order: 1
+    depends_on: []
+metadata:
+  tags:
+    - "geospatial"
+    - "weather"
+    - "nlp"
+  author: "Octpex Multi-Agent System"

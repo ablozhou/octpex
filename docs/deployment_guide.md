@@ -14,10 +14,78 @@ Octpex supports two distinct operational modes via configuration files in `confi
 - **Topology**: Zero external cluster dependencies (in-memory bus, in-memory substrate, in-process capability registry).
 - The default telemetry worker runs in Go. Applications embedding an SLM adapter can configure Ollama separately.
 - Dynamic scripts require an explicitly configured isolated runner. The Docker example uses a 256 MiB memory cap and a five-second timeout.
-- **Start Command**:
-  ```bash
-  go run cmd/octpex/main.go -profile=local
-  ```
+
+#### 1.1.0 Building & Running octpex (Local Binary / Makefile / CLI)
+
+From the repository root, you can build and run `octpex run` using:
+
+1. **Build Native Binary (Recommended)**:
+   ```bash
+   make build
+   ```
+   Compiles a pure static binary (`CGO_ENABLED=0`) into `./bin/` (`bin/octpex.exe` on Windows, `bin/octpex` on Linux/macOS).
+   If building directly with the `go` CLI on Linux, set `CGO_ENABLED=0` to avoid requiring local GCC or C standard library headers (`stdlib.h`):
+   ```bash
+   CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/octpex ./cmd/octpex
+   ```
+
+2. **Execute `octpex run`**:
+   - **Using the compiled binary**:
+     - Windows PowerShell:
+       ```powershell
+       .\bin\octpex.exe run -config configs/local.yaml
+       ```
+     - Linux / macOS / WSL:
+       ```bash
+       ./bin/octpex run -config configs/local.yaml
+       ```
+   - **Using Makefile (Parameterized CLI input)**:
+     ```bash
+     # 1. Run local standalone mode by default (PROFILE=local PORT=8080)
+     make run
+
+     # 2. Run distributed cluster mode (loads configs/cluster.yaml)
+     make run PROFILE=cluster
+
+     # 3. Custom HTTP port (e.g. port 9090 or 0 to disable dashboard)
+     make run PORT=9090
+
+     # 4. Custom config file or additional flags
+     make run CONFIG=my_custom.yaml ARGS="-worker=false"
+     ```
+   - **Running directly with Go without compiling**:
+     ```bash
+     go run ./cmd/octpex run -config configs/local.yaml
+     ```
+   - **Global CLI access**:
+     Add `./bin/` to your system `PATH` to invoke `octpex run`, `octpex eval`, or `octpex bench` globally from any terminal directory.
+
+#### 1.1.1 WSL2 Optimization: Seamless Access to Host Windows Ollama
+
+When developing on Windows workstations, developers commonly run Octpex inside WSL2 (Linux subsystem) while running Ollama directly on the Windows host to take full advantage of GPU drivers. Under default WSL2 NAT networking, network isolation often causes connection timeouts when accessing host Ollama.
+
+> [!TIP]
+> **Battle-Tested & Proven Solution: Enable WSL2 Mirrored Networking**
+> 
+> 1. **Configure `.wslconfig` on Windows Host**:
+>    In `C:\Users\<username>\.wslconfig` (create if absent):
+>    ```ini
+>    [wsl2]
+>    networkingMode=mirrored
+>    ```
+> 2. **Restart WSL2**:
+>    Run in Windows host terminal:
+>    ```powershell
+>    wsl --shutdown
+>    ```
+> 3. **Ensure Ollama Binds to Global Interface**:
+>    Set system environment variable `OLLAMA_HOST=0.0.0.0:11434` on Windows and restart Ollama.
+> 4. **Connect Directly via `localhost` (Zero Gateway Hacks)**:
+>    Inside WSL2, `http://localhost:11434` connects directly to Windows host Ollama:
+>    ```bash
+>    curl http://localhost:11434/api/tags
+>    ```
+>    In `configs/local.yaml`, `base_url` can simply remain `http://localhost:11434` without any dynamic IP resolution.
 
 ### 1.2 Enterprise Distributed Cluster Profile (`configs/cluster.yaml`)
 
@@ -65,11 +133,13 @@ Octpex provides production-ready deployment configurations in `deploy/`:
   ```bash
   kubectl apply -f deploy/k8s/deployment.yaml
   ```
-- **Enterprise Helm Chart (`deploy/helm/octpex`)**:
+- **Enterprise Helm Chart (`deploy/helm/octpex`) & SLM Sidecar Auto-Injection**:
   ```bash
   helm install octpex deploy/helm/octpex -n octpex-system --create-namespace
   ```
-  Deploys the Octpex cluster daemon with configurable replicas, Horizontal Pod Autoscaling (HPA), and readiness/liveness health probes.
+  * Centralized declaration of Multi-LLM provider pool (`llm_providers`) and Multi-SLM catalog (`slm_catalog`) in `values.yaml`;
+  * Arm workloads (`arms`) support assigning specialized SLM sidecars (e.g. `qwen2.5-coder-1.5b`), automatically falling back to global `default_slm` (`qwen2.5-1.5b`) when omitted;
+  * Standalone demonstration manifest: `kubectl apply -f deploy/k8s/arm-sidecar-demo.yaml`, rendering dual-container Pods with `< 5ms` Localhost loopback inference.
 
 ---
 

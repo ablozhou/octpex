@@ -70,14 +70,31 @@ kubectl get nodes
 ```
 确认节点状态输出为 `Ready`，且当前 `kubectl` 具备目标集群的资源创建与操作权限。
 
-### 2. 构建 Octpex 集群节点镜像
+### 2. 构建与导入 Octpex 集群节点镜像 (本地 Registry 隔离提示)
+
 在项目根目录下构建包含真实生产驱动（`cluster/` 模块）的容器镜像：
 
 ```bash
-docker build -t octpex/kernel:0.5.0 -f deploy/docker/Dockerfile .
+docker buildx build --load -t octpex/kernel:0.5.0 -f deploy/docker/Dockerfile .
 ```
 
-*注：若使用 Docker Desktop / Minikube 等本地集群，节点原生共享本机的 Docker 镜像，无需 push 到外部镜像仓库；若使用远程或云端集群，可将镜像 tag 后推送至私有镜像仓库。*
+> [!IMPORTANT]
+> **本地开发集群镜像隔离原理（Kind / containerd 与 Docker 并非同一 Registry）**：
+> 1. 本机 `docker build` 产出的镜像存储在宿主机 Docker Engine 存储池中。
+> 2. 现代本地 K8s 集群（如 Kind 节点容器、或 Docker Desktop 内嵌集群）内部独立运行 `containerd` 容器运行时，K8s 仅会检索 `k8s.io` 命名空间内的镜像。
+> 3. 若未导入，Pod 启动时将尝试向公网 Docker Hub 拉取该镜像并报 `ErrImagePull` / `ImagePullBackOff`。
+>
+> 项目根目录已提供自动化 [Makefile](../Makefile)，一行命令完成「构建 -> 管道流式导入 containerd -> 滚动重启」：
+> ```bash
+> # 自动化流水线 (支持自定义 NODE 与 NAMESPACE)
+> make dev
+> 
+> # 或分步执行：
+> make build   # 构建镜像
+> make load    # 通过管道将镜像注入节点 containerd: ctr -n k8s.io images import -
+> make deploy  # 滚动重启 octpex-entry 与 octpex-worker
+> ```
+> *注：如使用标准 Kind 集群，亦可执行 `kind load docker-image octpex/kernel:0.5.0`；若使用云端集群，可将镜像打 tag 后推送到您的云私有镜像仓库（ACR/ECR/SWR 等）。*
 
 ---
 
@@ -99,12 +116,12 @@ kubectl get pods -n octpex-system -o wide
 预期看到以下全部处于 `Running` 状态的 Pod：
 ```text
 NAME                             READY   STATUS    RESTARTS   AGE
-etcd-cluster-xxxxxxxxx-xxxxx     1/1     Running   0          25s
-nats-cluster-xxxxxxxxx-xxxxx     1/1     Running   0          25s
-redis-cluster-xxxxxxxxx-xxxxx    1/1     Running   0          25s
-octpex-entry-xxxxxxxxx-xxxxx     1/1     Running   0          25s
-octpex-worker-xxxxxxxxx-xxxxx1   1/1     Running   0          25s
-octpex-worker-xxxxxxxxx-xxxxx2   1/1     Running   0          25s
+etcd-cluster-xxx     1/1     Running   0          25s
+nats-cluster-xxx     1/1     Running   0          25s
+redis-cluster-xxx    1/1     Running   0          25s
+octpex-entry-xxx     1/1     Running   0          25s
+octpex-worker-xxx1   1/1     Running   0          25s
+octpex-worker-xxx2   1/1     Running   0          25s
 ```
 
 ---
@@ -204,6 +221,28 @@ curl -s -X POST http://localhost:8080/api/v1/dispatch \
 1. `worker_id` 显示任务是由后台的某个 `octpex-worker` Pod 执行的，而非入口 `entry` 执行；
 2. 重复的日志被就地去噪压缩；
 3. 生成了指向共享底座的轻量 URI：`sub://k8s-session-101/distilled/env-k8s-001`（版本为 1）。
+
+> [!NOTE]
+> ### 深度解析：腕足是如何理解与执行任务的？
+> 
+> 在测试上述 `distill-telemetry` 遥测去噪时，开发者通常会有三个关键疑问：
+> 
+> #### 1. 这个去重是腕足自带的 SLM 还是普通代码处理的？
+> **答案是：Go 原生 FSM 确定性流式哈希算法（0 Token 消耗，< 1ms 延迟），而非大模型。**
+> 这体现了 Octpex 的仿生神经分层哲学——**绝不把大模型当锤子到处找钉子**：
+> - **第一层：反射弧（如当前去重腕足）**：纯代码（Go FSM / 正则），以极高吞吐处理海量高频日志，不消耗任何 Token；
+> - **第二层：局部神经节（边缘 SLM）**：当遇到格式多变、无法用固定规则解析的文本时，挂载本地 0.5B-7B 小模型做语义归类；
+> - **第三层：中枢大脑（Octo-Brain LLM）**：仅在 Gate 1/2 门禁判定为高危（如死锁、重大故障）时，才由顶层大模型仲裁是否重启 Pod 或报警。
+> 
+> #### 2. 腕足如何知道任务是去重还是要写文章？用什么正则与参数？
+> - **能力契约路由（`target_capability`）**：每个任务信封都声明了目标能力（如 `distill-telemetry` 或 `blog-writer`）。NATS 消息总线按主题精准分发到声明了该能力的 Worker 消费组；
+> - **动态参数传递（`parameters`）**：调用方在信封的 `parameters` 中传入特定提取正则（如 `pattern_regex`）。若未传入，腕足执行内置默认策略；
+> - **大体积数据零拷贝引用（`substrate_refs`）**：无论是万行日志还是长篇大纲，绝不塞进信封，而是通过 `sub://` 存储指针轻量传递。
+> 
+> #### 3. 腕足需要用户手动编写配置，还是只需给头脑发指令？
+> - **普通任务（全自动）**：用户只需向中枢大脑下达自然语言指令，大脑自动将目标拆解为执行图（Plan DAG）并调度现有腕足；
+> - **未知格式（自进化）**：遇到未知格式时，腕足触发门禁升级，大脑现场动态合成 Python 脚本/正则，经安全沙箱审查后热加载到动态 MCP 工具箱，原地为腕足赋能，后续任务直接 0 Token 消化；
+> - **私有系统对接（轻量扩展）**：仅在需要对接企业内网私有系统时，开发者才需使用 Python SDK 或 Go 编写一个几十行的 Worker。
 
 ---
 
@@ -447,11 +486,83 @@ python examples/blog_publish_mesh/main.py \
 
 ---
 
-## 七、环境清理
+## 七、生产级多 LLM/SLM 资源池与 SLM Sidecar 注入架构
+
+在企业级 Kubernetes 落地中，Octpex 采用**「总配置多 LLM/SLM 资源池 + 腕足 Pod SLM Sidecar 伴生」**架构，彻底解决大规模多智能体部署中的网络跳数延迟、资源配额隔离与模型匹配问题。
+
+```mermaid
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
+flowchart TD
+    classDef default fill:none;
+
+    subgraph GLOBAL["Kubernetes 全局配置 (Helm values.yaml / ConfigMap)"]
+        direction TB
+        LLM_POOL["多 LLM 大模型池<br/>(GPT-4o, Claude 3.5, Gemini Flash, DeepSeek-V3)"]
+        SLM_CATALOG["多 SLM 小模型库<br/>(qwen2.5-0.5b, qwen2.5-coder-1.5b, phi-3.5-mini)<br/><b>default_slm: qwen2.5-1.5b</b>"]
+    end
+
+    subgraph POD1["腕足 Pod A (代码重构腕足: 显式指定)"]
+        direction LR
+        W1["主容器: Code Worker<br/>(slm: qwen2.5-coder-1.5b)"] <==>|"localhost:11434 (< 5ms)"| S1["Sidecar 容器: SLM Engine<br/>(Qwen2.5-Coder:1.5B 独立 CPU/内存)"]
+    end
+
+    subgraph POD2["腕足 Pod B (通用天气腕足: 未指定)"]
+        direction LR
+        W2["主容器: Weather Worker<br/>(未指定 slm_profile)"] <==>|"localhost:11434 (< 5ms)"| S2["Sidecar 容器: SLM Engine<br/><b>自动继承注入 default_slm (1.5B)</b>"]
+    end
+
+    LLM_POOL -.->|"复杂规划与全局仲裁"| BRAIN["Octo-Brain 中枢大脑 Pod"]
+    SLM_CATALOG ==>|"按指定或缺省自动注入"| POD1
+    SLM_CATALOG ==>|"自动回退缺省注入"| POD2
+
+    style GLOBAL fill:none,stroke-width:1.5px;
+    style POD1 fill:none,stroke-dasharray: 4 4;
+    style POD2 fill:none,stroke-dasharray: 4 4;
+```
+
+### 1. 为什么中心化 SLM 是反模式？为什么必须是 Sidecar？
+* **消除喧闹邻居（Noisy Neighbor）**：若集群共用一个集中式 SLM，某个日志分析腕足突发高并发会占满推理队列，导致核心对话腕足超时；Sidecar 模式使每个 Pod 拥有独立的 CPU/GPU 配额（`requests/limits`），互不影响。
+* **Localhost 零跳网络延迟（< 5ms）**：主容器与 Sidecar 共享 Pod Network 命名空间，通过 `http://127.0.0.1:11434` 本地回环通信，消除集群内跨节点网络抖动与网关瓶颈。
+* **按需精准挂载与开箱即用回退**：
+  * **显式指定**：代码修复腕足指定 `qwen2.5-coder-1.5b`，日志去噪腕足指定 `qwen2.5-0.5b`；
+  * **缺省回退**：未指定小模型的业务腕足，K8s 自动注入全局 `default_slm`（如 `qwen2.5-1.5b`），免除业务团队配置负担。
+
+### 2. 部署与验证示例
+
+通过提供的模板清单 [deploy/k8s/arm-sidecar-demo.yaml](../deploy/k8s/arm-sidecar-demo.yaml) 直接体验：
+
+```bash
+kubectl apply -f deploy/k8s/arm-sidecar-demo.yaml
+```
+
+查看 Pod 状态，观察其双容器（`2/2 READY`）伴生形态：
+```bash
+kubectl get pods -n octpex-system -l octpex.io/arm-id
+```
+
+```text
+NAME                                       READY   STATUS    RESTARTS   AGE
+octpex-arm-code-patcher-5d6cf4-x7k9p       2/2     Running   0          45s
+octpex-arm-weather-8fb9d2-m4q2v            2/2     Running   0          45s
+```
+
+---
+
+## 八、环境清理
 
 验证完成后，一键清理所有 Kubernetes 部署与进阶场景资源：
 
 ```bash
+kubectl delete -f deploy/k8s/arm-sidecar-demo.yaml --ignore-not-found
 kubectl delete -f examples/aiops_log_drain/k8s-deployment.yaml --ignore-not-found
 kubectl delete -f examples/blog_publish_mesh/k8s-job.yaml --ignore-not-found
 kubectl delete -f deploy/k8s/all-in-one.yaml

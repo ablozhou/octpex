@@ -70,14 +70,30 @@ kubectl get nodes
 ```
 Confirm node status reports `Ready` and your `kubectl` context has permission to create namespaces and workloads.
 
-### 2.2 Build Octpex Kernel Image
+### 2.2 Build & Import Octpex Kernel Image (Local Registry Isolation Note)
 Build the container image embedding the production cluster driver:
 
 ```bash
-docker build -t octpex/kernel:0.5.0 -f deploy/docker/Dockerfile .
+docker buildx build --load -t octpex/kernel:0.5.0 -f deploy/docker/Dockerfile .
 ```
 
-*Note: With local setups like Docker Desktop or Minikube, nodes natively share local Docker images. For remote clusters, tag and push to your registry.*
+> [!IMPORTANT]
+> **Understanding Image Registry Isolation (Kind / containerd vs. Docker Engine)**:
+> 1. Images built with `docker build` reside exclusively in the host Docker storage pool.
+> 2. Modern local Kubernetes clusters (such as Kind nodes or Docker Desktop's containerd CRI runtime) run their own `containerd` daemon, looking strictly inside the `k8s.io` namespace.
+> 3. If an image is not explicitly imported or pushed, Kubernetes will attempt to pull `octpex/kernel:0.5.0` from Docker Hub and fail with `ErrImagePull` or `ImagePullBackOff`.
+>
+> A top-level [Makefile](../Makefile) is provided to automate this entire build-load-deploy iteration:
+> ```bash
+> # One-command dev loop: build -> stream import into containerd -> rollout restart
+> make dev
+> 
+> # Or step-by-step:
+> make build   # Build kernel Docker image
+> make load    # Stream image into containerd: ctr -n k8s.io images import -
+> make deploy  # Rollout restart octpex-entry and octpex-worker
+> ```
+> *Note: For standard Kind clusters, you may also run `kind load docker-image octpex/kernel:0.5.0`. For remote/cloud clusters, tag and push to your private container registry (ECR, GCR, ACR).*
 
 ---
 
@@ -151,6 +167,28 @@ curl -s -X POST http://localhost:8080/api/v1/dispatch \
 **Verification checks:**
 1. `metadata.worker_id` points to one of the `octpex-worker` pods, proving cross-node NATS dispatch;
 2. `substrate_refs` contains `sub://k8s-session-101/distilled/env-k8s-001` with version `1`.
+
+> [!NOTE]
+> ### Deep Dive: How Do Octo-Arms Perceive & Execute Tasks?
+> 
+> When testing the `distill-telemetry` workload above, three common architectural questions arise:
+> 
+> #### 1. Is this deduplication performed by an SLM or standard code?
+> **Answer: Go-native FSM streaming hash deduplication (0 Token cost, < 1ms latency), not an LLM.**
+> This embodies Octpex's biomimetic reflex tiering—never using LLMs where deterministic code excels:
+> - **Tier 1: Reflex Arc (Current Distiller Arm)**: Pure Go/regex code for high-throughput, low-latency log filtering at 0 token cost;
+> - **Tier 2: Ganglion SLM (Edge Models)**: 0.5B-7B local models (Ollama/vLLM) for semantic clustering on unstructured, fuzzy text;
+> - **Tier 3: Cortex Brain (Frontier LLM)**: Cloud LLMs arbitrate only when Gate 1/2 triggers on critical deadlocks or high-risk mutations.
+> 
+> #### 2. How does an arm know its task (dedup vs. writing) and regex rules?
+> - **Capability Routing (`target_capability`)**: The envelope declares the required capability (e.g., `distill-telemetry` or `blog-writer`), routed by NATS to subscribing workers;
+> - **Dynamic Parameters (`parameters`)**: Callers pass custom regex via `envelope.parameters["pattern_regex"]`, falling back to built-in deterministic defaults if omitted;
+> - **Zero-Copy Pass-by-Reference (`substrate_refs`)**: Large payloads are never packed into envelopes; they are stored in the Redis substrate under `sub://` URIs.
+> 
+> #### 3. Do users need to write and configure arms, or just instruct the brain?
+> - **Routine Workflows (Automated)**: Users give natural-language goals to Octo-Brain; the brain plans the DAG and routes tasks to existing arms;
+> - **Unknown Formats (Self-Evolving)**: Arms escalate on unhandled formats, prompting Octo-Brain to synthesize new MCP tools on-the-fly and hot-load them into the edge box for future 0-token execution;
+> - **Proprietary Systems (Custom Workers)**: Developers only write lightweight scripts (Go/Python SDK) when integrating internal enterprise databases or legacy APIs.
 
 ---
 
@@ -374,11 +412,77 @@ cat output/blog/blog_*.md
 
 ---
 
-## 7. Teardown
+## 7. Production Multi-LLM/SLM Resource Pool & Sidecar Injection Architecture
+
+In enterprise Kubernetes deployments, Octpex applies a **Global Multi-LLM/SLM Catalog + Arm Pod Sidecar Injection** pattern to solve latency, resource isolation, and specialized capability matching.
+
+```mermaid
+%%{init: {
+  "themeVariables": {
+    "background": "transparent",
+    "mainBkg": "transparent",
+    "subGraphBkg": "transparent",
+    "clusterBkg": "transparent",
+    "edgeLabelBackground": "transparent"
+  },
+  "themeCSS": ".edgeLabel, .edgeLabel span, .edgeLabel div { background-color: transparent !important; } .edgeLabel rect { fill: transparent !important; opacity: 0 !important; }"
+}}%%
+flowchart TD
+    classDef default fill:none;
+
+    subgraph GLOBAL["Kubernetes Global Configuration (Helm values.yaml / ConfigMap)"]
+        direction TB
+        LLM_POOL["Multi-LLM Pool<br/>(GPT-4o, Claude 3.5, Gemini Flash, DeepSeek-V3)"]
+        SLM_CATALOG["Multi-SLM Catalog<br/>(qwen2.5-0.5b, qwen2.5-coder-1.5b, phi-3.5-mini)<br/><b>default_slm: qwen2.5-1.5b</b>"]
+    end
+
+    subgraph POD1["Arm Pod A (Code Patcher Arm: Explicit)"]
+        direction LR
+        W1["Main Container: Code Worker<br/>(slm: qwen2.5-coder-1.5b)"] <==>|"localhost:11434 (< 5ms)"| S1["Sidecar: SLM Engine<br/>(Qwen2.5-Coder:1.5B Isolated CPU/RAM)"]
+    end
+
+    subgraph POD2["Arm Pod B (Weather Arm: Unspecified)"]
+        direction LR
+        W2["Main Container: Weather Worker<br/>(No slm_profile)"] <==>|"localhost:11434 (< 5ms)"| S2["Sidecar: SLM Engine<br/><b>Inherits default_slm (1.5B)</b>"]
+    end
+
+    LLM_POOL -.->|"Planning & Global Arbitration"| BRAIN["Octo-Brain Pod"]
+    SLM_CATALOG ==>|"Injected per specification"| POD1
+    SLM_CATALOG ==>|"Injected via default fallback"| POD2
+
+    style GLOBAL fill:none,stroke-width:1.5px;
+    style POD1 fill:none,stroke-dasharray: 4 4;
+    style POD2 fill:none,stroke-dasharray: 4 4;
+```
+
+### Key Architectural Benefits
+1. **Eliminate Noisy Neighbors**: Centralized shared SLMs suffer from queue starvation when high-frequency log workers burst. The sidecar pattern guarantees dedicated CPU/GPU quotas (`requests/limits`) per Pod.
+2. **Zero-Hop Localhost Latency (< 5ms)**: Worker logic calls `http://127.0.0.1:11434` over local loopback, removing ingress/DNS hops.
+3. **Explicit Assignment with Default Fallback**:
+   * Specialized workers (e.g. code repair) declare `slm_profile: "qwen2.5-coder-1.5b"`;
+   * General workers omit `slm_profile` and automatically inherit the platform's `default_slm` (e.g. `qwen2.5-1.5b`);
+   * Deterministic Level 0 workers set `slm_profile: "none"` to deploy with 0 token/CPU overhead.
+
+### Deployment Example
+
+Apply the sidecar demo manifest:
+```bash
+kubectl apply -f deploy/k8s/arm-sidecar-demo.yaml
+```
+
+Verify the dual-container (`2/2 READY`) Pod status:
+```bash
+kubectl get pods -n octpex-system -l octpex.io/arm-id
+```
+
+---
+
+## 8. Teardown
 
 Clean up all core and scenario resources:
 
 ```bash
+kubectl delete -f deploy/k8s/arm-sidecar-demo.yaml --ignore-not-found
 kubectl delete -f examples/aiops_log_drain/k8s-deployment.yaml --ignore-not-found
 kubectl delete -f examples/blog_publish_mesh/k8s-job.yaml --ignore-not-found
 kubectl delete -f deploy/k8s/all-in-one.yaml

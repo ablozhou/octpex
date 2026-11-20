@@ -7,8 +7,10 @@ brain:
     escalation_timeout_ms: 10000
   frontier:
     provider: "ollama" # or "openai", "gemini"
+    # Note for WSL2/Docker: If Ollama runs on Windows host, set OLLAMA_HOST=0.0.0.0 on Windows,
+    # open firewall port 11434, and use "http://localhost:11434" (with mirrored networking) or "http://<windows-host-ip>:11434"
     base_url: "http://localhost:11434"
-    model: "qwen2.5-coder:7b"
+    model: "qwen3.5:4b"
     temperature: 0.1
 
 ring:

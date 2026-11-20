@@ -40,7 +40,7 @@ def run_blog_mesh(topic: str, output_dir: str, max_rounds: int = 3):
     session_id = f"blog-{int(time.time())}"
 
     # --------------------------------------------------------------------------
-    # Arm 1: Research Arm (检索调研腕足)
+    # Arm 1: Research Arm (Information Retrieval & Background Investigation)
     # --------------------------------------------------------------------------
     print("[Arm 1: Researcher] Gathering technical background & key facts...")
     research_facts = {
@@ -59,7 +59,7 @@ def run_blog_mesh(topic: str, output_dir: str, max_rounds: int = 3):
     print(f"  -> Stored research findings at {research_uri} (Version: 1)")
 
     # --------------------------------------------------------------------------
-    # Arm 2: Planner Arm (大纲规划腕足)
+    # Arm 2: Planner Arm (Outline Structuring & Article Planning)
     # --------------------------------------------------------------------------
     print("\n[Arm 2: Planner] Structuring article outline based on research...")
     outline = {
@@ -77,7 +77,7 @@ def run_blog_mesh(topic: str, output_dir: str, max_rounds: int = 3):
     print(f"  -> Stored structured outline at {outline_uri} (Version: 1)")
 
     # --------------------------------------------------------------------------
-    # Arm 3 & 4: Writer & Critic Reflex Loop (创作撰写与质检监督多轮循环)
+    # Arm 3 & 4: Writer & Critic Reflex Loop (Drafting & Quality Review Cycles)
     # --------------------------------------------------------------------------
     current_round = 1
     feedback = ""
@@ -160,7 +160,7 @@ Kernel benchmark stress tests demonstrate throughput exceeding **9.6M+ CAS ops/s
         sys.exit(1)
 
     # --------------------------------------------------------------------------
-    # Arm 5: Publisher Arm (发布归档腕足 - 共享卷持久化)
+    # Arm 5: Publisher Arm (Publishing & Persistent Archival)
     # --------------------------------------------------------------------------
     print("\n[Arm 5: Publisher] Injecting publication metadata & writing to shared volume...")
     

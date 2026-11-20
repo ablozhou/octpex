@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
-  <a href="README_CN.md"><img src="https://img.shields.io/badge/Language-中文版-blue.svg" alt="Chinese Readme"></a>
+  <a href="README_CN.md"><img src="https://img.shields.io/badge/Language-Chinese%20Version-blue.svg" alt="Chinese Readme"></a>
   <a href="docs/PRD.md"><img src="https://img.shields.io/badge/PRD-Document-brightgreen.svg" alt="PRD"></a>
   <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/Architecture-Specification-orange.svg" alt="Architecture"></a>
   <a href="docs/k8s_multi_agent_guide.md"><img src="https://img.shields.io/badge/Kubernetes-0_to_1_Guide-purple.svg" alt="K8s Guide"></a>
@@ -17,16 +17,17 @@
 ## Table of Contents
 
 1. [Vision & Strategic Overview](#vision--strategic-overview)
-2. [Why Biomimetic Architecture? (Octopus Topology)](#why-biomimetic-architecture-octopus-topology)
-3. [Core Pain Points & Solutions](#core-pain-points--solutions)
-4. [System Architecture & Topology](#system-architecture--topology)
-5. [Objective Escalation Funnel (Zero-Trust in SLM Self-Assessment)](#objective-escalation-funnel-zero-trust-in-slm-self-assessment)
-6. [Cross-Tier Self-Evolution: Brain-to-Arm & Dynamic MCP](#cross-tier-self-evolution-brain-to-arm--dynamic-mcp)
-7. [Collaboration Patterns & Ecosystem Interoperability](#collaboration-patterns--ecosystem-interoperability)
-8. [Core SPI Contracts](#core-spi-contracts)
-9. [Security Governance & Edge Resilience](#security-governance--edge-resilience)
-10. [Deployment Profiles & Core Feature Architecture](#deployment-profiles--core-feature-architecture)
-11. [Documentation Index](#documentation-index)
+2. [5-Minute Quick Start](#5-minute-quick-start)
+3. [Why Biomimetic Architecture? (Octopus Topology)](#why-biomimetic-architecture-octopus-topology)
+4. [Core Pain Points & Solutions](#core-pain-points--solutions)
+5. [System Architecture & Topology](#system-architecture--topology)
+6. [Objective Escalation Funnel (Zero-Trust in SLM Self-Assessment)](#objective-escalation-funnel-zero-trust-in-slm-self-assessment)
+7. [Cross-Tier Self-Evolution: Brain-to-Arm & Dynamic MCP](#cross-tier-self-evolution-brain-to-arm--dynamic-mcp)
+8. [Collaboration Patterns & Ecosystem Interoperability](#collaboration-patterns--ecosystem-interoperability)
+9. [Core SPI Contracts](#core-spi-contracts)
+10. [Security Governance & Edge Resilience](#security-governance--edge-resilience)
+11. [Deployment Profiles & Core Feature Architecture](#deployment-profiles--core-feature-architecture)
+12. [Documentation Index](#documentation-index)
 
 ---
 
@@ -36,6 +37,74 @@
 
 * **What Octpex IS:** A domain-agnostic **Distributed Cognitive Fabric & Scheduling Runtime** that coordinates autonomous edge workers (**Octo-Arms** running local Small Language Models) through a shared coordination substrate (**Basal Nerve Ring**) under the strategic oversight of a central reasoning model (**Octo-Brain**).
 * **What Octpex IS NOT:** Octpex is **not** another single-process agent orchestration SDK (such as LangGraph, Google ADK, or CrewAI), nor is it an operating system/container isolation sandbox (such as AbloEx). Instead, Octpex serves as the **distributed nervous system** that wraps existing single-node agents, routes collaborative workloads across heterogeneous runtimes, offloads 70%–85% of routine inference, and delegates privileged actions to pluggable sandboxes.
+
+---
+
+## 5-Minute Quick Start
+
+Experience the biomimetic multi-agent fabric in 3 quick steps: build native kernel, launch central Brain, attach Weather MCP Arm, and test live dispatches.
+
+### Step 1: Build & Launch Octo-Brain Kernel
+
+```bash
+# 1. Compile pure static native binary (CGO_ENABLED=0 into ./bin/)
+make build
+
+# 2. Start Octpex central brain daemon (default standalone profile, port 8080)
+make run
+```
+
+> [!TIP]
+> Open **`http://localhost:8080`** in your browser to inspect the real-time topology dashboard, active arm nodes, and live FinOps metrics.
+
+### Step 2: Start Weather MCP Arm Worker (Port 8081)
+
+In another terminal, launch the weather arm worker declared by `arm.yaml`:
+
+```bash
+python examples/weather_mcp_arm/server.py 8081
+```
+
+> [!NOTE]
+> Upon startup, the arm's background daemon automatically executes **autonomous self-registration** with the central Brain (`http://127.0.0.1:8080/api/v1/register`) and sends heartbeats every 5 seconds. Refreshing `http://localhost:8080` instantly reveals the active `arm-weather-mcp` card under **3. OCTO-ARMS MESH**.
+
+### Step 3: Experience Biomimetic Task Dispatches & Dialogue
+
+#### Method A: Interactive Web Dialogue (Recommended)
+Open **`http://localhost:8080`** in your browser. In the **Interactive Biomimetic Dialogue** panel at the top:
+* Click preset prompt chips (e.g. `Beijing Temperature`, `Tokyo Weather (Dual)`, `Paris Weather`) or type natural language queries and press Enter;
+* The central Brain converts intent into a vertical nervous envelope, routes it to the weather arm over the bus, and renders live meteorological results.
+
+#### Method B: Vertical Dispatch via Central Brain Gateway (REST API / Port 8080)
+The central Brain matches the capability against registered arms and dispatches to the weather arm:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/dispatch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_capability": "get_current_temperature",
+    "parameters": {
+      "location": "Beijing",
+      "unit": "c"
+    }
+  }'
+```
+
+#### Method C: Direct Query to Weather Arm Worker (Port 8081)
+```bash
+# Celsius query for Paris
+curl -X POST http://localhost:8081/api/v1/dispatch \
+  -H "Content-Type: application/json" \
+  -d '{"target_capability": "get_current_temperature", "parameters": {"location": "Paris", "unit": "c"}}'
+
+# Dual mode (°F + °C) query for Sydney
+curl "http://localhost:8081/weather?location=Sydney&unit=dual"
+```
+
+#### Method D: Run Standalone Python Reflex Loop Verification
+```bash
+python examples/weather_mcp_arm/main.py
+```
 
 ---
 

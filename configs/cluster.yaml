@@ -9,7 +9,7 @@ brain:
     provider: "gemini" # or "openai", "azure"
     base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
     api_key_env: "GEMINI_API_KEY"
-    model: "gemini-1.5-pro"
+    model: "gemini-3.5-flash-lite"
     temperature: 0.2
 
 ring:
@@ -37,3 +37,67 @@ sandbox:
   memory_limit_mb: 512
   timeout_ms: 10000
   network_isolated: true
+
+# Multi-LLM Frontier Provider Pool (Brain Strategic Planning & Arbitration)
+llm_providers:
+  gemini-flash:
+    provider: "gemini"
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+    model: "gemini-1.5-flash"
+    temperature: 0.1
+    purpose: "Fast intention extraction & general task orchestration"
+  gpt-4o:
+    provider: "openai"
+    base_url: "https://api.openai.com/v1"
+    model: "gpt-4o"
+    temperature: 0.1
+    purpose: "Complex multi-agent arbitration & dynamic tool synthesis"
+  deepseek-v3:
+    provider: "deepseek"
+    base_url: "https://api.deepseek.com/v1"
+    model: "deepseek-chat"
+    temperature: 0.2
+    purpose: "High-throughput data summarization & cost-effective batch analysis"
+
+# Edge SLM Catalog (Injected as Sidecars into Octo-Arm Worker Pods)
+slm_catalog:
+  default_slm: "qwen2.5-1.5b"
+  profiles:
+    qwen2.5-0.5b:
+      engine: "ollama"
+      image: "octpex/slm-runtime:qwen2.5-0.5b"
+      port: 11434
+      purpose: "Ultra-low latency log deduplication & field sanitization"
+    qwen2.5-1.5b:
+      engine: "ollama"
+      image: "octpex/slm-runtime:qwen2.5-1.5b"
+      port: 11434
+      purpose: "General-purpose edge reflex & Gate 2 self-repair (Platform Default)"
+    qwen2.5-coder-1.5b:
+      engine: "ollama"
+      image: "octpex/slm-runtime:qwen2.5-coder-1.5b"
+      port: 11434
+      purpose: "Automated git patch repair & unit test self-healing"
+    phi-3.5-mini:
+      engine: "ollama"
+      image: "octpex/slm-runtime:phi-3.5-mini"
+      port: 11434
+      purpose: "Complex multi-source reasoning & semantic data extraction"
+
+# Octo-Arm Workload Declarations (Sidecar Auto-Injection)
+arms:
+  code-patcher:
+    replicas: 2
+    slm_profile: "qwen2.5-coder-1.5b"
+    worker_image: "octpex/kernel:0.5.0"
+    capability_tags: ["git_patch_repair", "unit_test_fix"]
+  weather-arm:
+    replicas: 1
+    # slm_profile omitted -> automatically inherits default_slm (qwen2.5-1.5b)
+    worker_image: "octpex/kernel:0.5.0"
+    capability_tags: ["get_current_temperature"]
+  metrics-filter:
+    replicas: 2
+    slm_profile: "none"
+    worker_image: "octpex/kernel:0.5.0"
+    capability_tags: ["filter_high_frequency_metrics"]
